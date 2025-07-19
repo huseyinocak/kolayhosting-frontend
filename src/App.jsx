@@ -21,7 +21,6 @@ const ComparisonPage = lazy(() => import('./pages/ComparisonPage'));
 const ProvidersPage = lazy(() => import('./pages/ProvidersPage'));
 const ProviderDetailPage = lazy(() => import('./pages/ProviderDetailPage'));
 const FeaturesPage = lazy(() => import('./pages/FeaturesPage')); // Yeni eklendi
-const ReviewsPage = lazy(() => import('./pages/ReviewsPage'));     // Yeni eklendi
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const CategoriesAdmin = lazy(() => import('./pages/admin/CategoriesAdmin'));
 const ProvidersAdmin = lazy(() => import('./pages/admin/ProvidersAdmin'));
@@ -55,7 +54,6 @@ function App() {
                   <Route path="/providers" element={<ProvidersPage />} />
                   <Route path="/providers/:id" element={<ProviderDetailPage />} />
                   <Route path="/features" element={<FeaturesPage />} /> 
-                  <Route path="/reviews" element={<div>İncelemeler Sayfası (Henüz Yapılmadı)</div>} /> {/* Bu satırı da lazy yüklenen bir sayfaya çevirebiliriz */}
                   <Route path="/compare" element={<ComparisonPage />} />
 
                   {/* Korunan Rotlar - Sadece giriş yapmış kullanıcılar erişebilir */}

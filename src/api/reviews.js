@@ -32,10 +32,26 @@ reviewsApi.interceptors.request.use(
  */
 export const getAllReviews = async () => {
     try {
-        const response = await reviewsApi.get('/reviews');
+        const response = await reviewsApi.get('/reviews/all');
         return response.data.data;
     } catch (error) {
         console.error('Tüm yorumları getirirken hata:', error.response?.data || error.message);
+        throw error;
+    }
+};
+
+/**
+ * Public kullanıcıların görebileceği onaylanmış yorumları getirir.
+ * Bu metod, genel kullanıcı sayfaları için kullanılır.
+ * @returns {Promise<object[]>} Onaylanmış yorum listesi
+ */
+export const getApprovedReviews = async () => {
+    try {
+        // Public kullanıcıların görebileceği onaylanmış yorumları getiren uç nokta
+        const response = await reviewsApi.get('/reviews'); // Bu, public kullanıcılar için
+        return response.data.data;
+    } catch (error) {
+        console.error('Onaylanmış yorumları getirirken hata:', error.response?.data || error.message);
         throw error;
     }
 };

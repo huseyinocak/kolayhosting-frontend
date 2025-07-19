@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useForm, Controller } from 'react-hook-form'; // Controller'ı da içe aktar
+import { zodResolver } from '@hookform/resolvers/zod'; // Zod resolver'ı içe aktar
+import * as z from 'zod'; // Zod kütüphanesini içe aktar
 import {
     getAllProviders,
     createProvider,
@@ -32,18 +35,36 @@ import { Textarea } from '../../components/ui/textarea';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'; // Logo için Avatar
 
+// Zod ile sağlayıcı formunun şemasını tanımla
+const providerSchema = z.object({
+    name: z.string().min(2, { message: "Sağlayıcı adı en az 2 karakter olmalıdır." }),
+    logo_url: z.string().url({ message: "Geçerli bir URL giriniz." }).optional().or(z.literal('')), // Boş stringi de kabul et
+    website_url: z.string().url({ message: "Geçerli bir URL giriniz." }).optional().or(z.literal('')), // Boş stringi de kabul et
+    description: z.string().optional(),
+    average_rating: z.preprocess(
+        (val) => val === "" ? undefined : Number(val), // Boş stringi undefined olarak işle
+        z.number().min(0, { message: "Derecelendirme sıfırdan küçük olamaz." }).max(5, { message: "Derecelendirme 5'ten büyük olamaz." }).optional()
+    ),
+});
+
 const ProvidersAdmin = () => {
     const [providers, setProviders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [currentProvider, setCurrentProvider] = useState(null); // Düzenlenecek sağlayıcı
-    const [providerName, setProviderName] = useState('');
-    const [providerLogoUrl, setProviderLogoUrl] = useState('');
-    const [providerWebsiteUrl, setProviderWebsiteUrl] = useState('');
-    const [providerDescription, setProviderDescription] = useState('');
-    const [providerAverageRating, setProviderAverageRating] = useState(''); // Sayısal giriş
     const { toast } = useToastContext();
+
+    // useForm hook'unu başlat
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+        reset, // Formu sıfırlamak için
+        setValue, // Form alanlarına değer atamak için
+    } = useForm({
+        resolver: zodResolver(providerSchema),
+    });
 
     // Sağlayıcıları API'den çekme fonksiyonu
     const fetchProviders = async () => {
@@ -52,7 +73,8 @@ const ProvidersAdmin = () => {
             const data = await getAllProviders();
             setProviders(data);
         } catch (err) {
-            setError(err.message || 'Sağlayıcılar yüklenirken bir hata oluştu.');
+            console.error('Sağlayıcılar yüklenirken hata:', err);
+            setError('Sağlayıcılar yüklenemedi. Lütfen daha sonra tekrar deneyin.');
             toast({
                 title: 'Hata',
                 description: 'Sağlayıcılar yüklenirken bir sorun oluştu.',
@@ -67,27 +89,29 @@ const ProvidersAdmin = () => {
         fetchProviders();
     }, []);
 
-    // Yeni sağlayıcı ekleme veya mevcut sağlayıcıyı düzenleme
-    const handleSaveProvider = async (e) => {
-        e.preventDefault();
-        if (!providerName.trim() || !providerWebsiteUrl.trim()) {
-            toast({
-                title: 'Uyarı',
-                description: 'Sağlayıcı adı ve web sitesi URL\'si boş bırakılamaz.',
-                variant: 'warning',
-            });
-            return;
+    // Diyalog açıldığında veya currentProvider değiştiğinde formu doldur
+    useEffect(() => {
+        if (isDialogOpen && currentProvider) {
+            setValue('name', currentProvider.name);
+            setValue('logo_url', currentProvider.logo_url || '');
+            setValue('website_url', currentProvider.website_url || '');
+            setValue('description', currentProvider.description || '');
+            setValue('average_rating', currentProvider.average_rating || '');
+        } else if (!isDialogOpen) {
+            reset(); // Diyalog kapandığında formu sıfırla
+            setCurrentProvider(null); // currentProvider'ı da sıfırla
         }
+    }, [isDialogOpen, currentProvider, reset, setValue]);
 
-        const payload = {
-            name: providerName,
-            logo_url: providerLogoUrl,
-            website_url: providerWebsiteUrl,
-            description: providerDescription,
-            average_rating: providerAverageRating ? parseFloat(providerAverageRating) : null,
-        };
-
+    // Yeni sağlayıcı ekleme veya mevcut sağlayıcıyı düzenleme
+    const onSubmit = async (data) => {
         try {
+            const payload = { ...data };
+            // average_rating boş string ise undefined yap (Zod preprocess ile zaten yapılıyor ama emin olmak için)
+            if (payload.average_rating === '') {
+                payload.average_rating = undefined;
+            }
+
             if (currentProvider) {
                 // Sağlayıcıyı düzenle
                 await updateProvider(currentProvider.id, payload);
@@ -104,12 +128,11 @@ const ProvidersAdmin = () => {
                 });
             }
             setIsDialogOpen(false); // Diyaloğu kapat
-            resetForm(); // Formu sıfırla
             fetchProviders(); // Sağlayıcıları yeniden çek
         } catch (err) {
             toast({
                 title: 'Hata',
-                description: `Sağlayıcı kaydedilirken bir sorun oluştu: ${err.message || ''}`,
+                description: `Sağlayıcı kaydedilirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                 variant: 'destructive',
             });
         }
@@ -118,11 +141,6 @@ const ProvidersAdmin = () => {
     // Sağlayıcı düzenleme diyaloğunu açma
     const handleEditClick = (provider) => {
         setCurrentProvider(provider);
-        setProviderName(provider.name);
-        setProviderLogoUrl(provider.logo_url || '');
-        setProviderWebsiteUrl(provider.website_url || '');
-        setProviderDescription(provider.description || '');
-        setProviderAverageRating(provider.average_rating ? String(provider.average_rating) : '');
         setIsDialogOpen(true);
     };
 
@@ -139,21 +157,11 @@ const ProvidersAdmin = () => {
             } catch (err) {
                 toast({
                     title: 'Hata',
-                    description: `Sağlayıcı silinirken bir sorun oluştu: ${err.message || ''}`,
+                    description: `Sağlayıcı silinirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                     variant: 'destructive',
                 });
             }
         }
-    };
-
-    // Formu sıfırlama
-    const resetForm = () => {
-        setCurrentProvider(null);
-        setProviderName('');
-        setProviderLogoUrl('');
-        setProviderWebsiteUrl('');
-        setProviderDescription('');
-        setProviderAverageRating('');
     };
 
     if (loading) {
@@ -188,7 +196,10 @@ const ProvidersAdmin = () => {
             <div className="flex justify-end mb-6">
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
-                        <Button onClick={resetForm}>Yeni Sağlayıcı Ekle</Button>
+                        <Button onClick={() => {
+                            setCurrentProvider(null); // Yeni ekleme için currentProvider'ı sıfırla
+                            setIsDialogOpen(true);
+                        }}>Yeni Sağlayıcı Ekle</Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[425px]">
                         <DialogHeader>
@@ -199,18 +210,17 @@ const ProvidersAdmin = () => {
                                     : 'Yeni bir sağlayıcı oluşturmak için bilgileri girin.'}
                             </DialogDescription>
                         </DialogHeader>
-                        <form onSubmit={handleSaveProvider} className="grid gap-4 py-4">
+                        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="name" className="text-right">
                                     Ad
                                 </Label>
                                 <Input
                                     id="name"
-                                    value={providerName}
-                                    onChange={(e) => setProviderName(e.target.value)}
+                                    {...register("name")}
                                     className="col-span-3"
-                                    required
                                 />
+                                {errors.name && <p className="col-span-4 text-red-500 text-sm text-right">{errors.name.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="logo_url" className="text-right">
@@ -218,12 +228,12 @@ const ProvidersAdmin = () => {
                                 </Label>
                                 <Input
                                     id="logo_url"
-                                    value={providerLogoUrl}
-                                    onChange={(e) => setProviderLogoUrl(e.target.value)}
-                                    className="col-span-3"
                                     type="url"
+                                    {...register("logo_url")}
+                                    className="col-span-3"
                                     placeholder="https://example.com/logo.png"
                                 />
+                                {errors.logo_url && <p className="col-span-4 text-red-500 text-sm text-right">{errors.logo_url.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="website_url" className="text-right">
@@ -231,13 +241,12 @@ const ProvidersAdmin = () => {
                                 </Label>
                                 <Input
                                     id="website_url"
-                                    value={providerWebsiteUrl}
-                                    onChange={(e) => setProviderWebsiteUrl(e.target.value)}
-                                    className="col-span-3"
                                     type="url"
-                                    placeholder="https://www.example.com"
-                                    required
+                                    {...register("website_url")}
+                                    className="col-span-3"
+                                    placeholder="https://example.com"
                                 />
+                                {errors.website_url && <p className="col-span-4 text-red-500 text-sm text-right">{errors.website_url.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="description" className="text-right">
@@ -245,26 +254,24 @@ const ProvidersAdmin = () => {
                                 </Label>
                                 <Textarea
                                     id="description"
-                                    value={providerDescription}
-                                    onChange={(e) => setProviderDescription(e.target.value)}
+                                    {...register("description")}
                                     className="col-span-3"
                                 />
+                                {errors.description && <p className="col-span-4 text-red-500 text-sm text-right">{errors.description.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="average_rating" className="text-right">
-                                    Ort. Derecelendirme
+                                    Ortalama Derecelendirme
                                 </Label>
                                 <Input
                                     id="average_rating"
-                                    value={providerAverageRating}
-                                    onChange={(e) => setProviderAverageRating(e.target.value)}
-                                    className="col-span-3"
                                     type="number"
                                     step="0.1"
-                                    min="0"
-                                    max="5"
-                                    placeholder="Örn: 4.5"
+                                    {...register("average_rating")}
+                                    className="col-span-3"
+                                    placeholder="0.0 - 5.0 arası"
                                 />
+                                {errors.average_rating && <p className="col-span-4 text-red-500 text-sm text-right">{errors.average_rating.message}</p>}
                             </div>
                             <DialogFooter>
                                 <Button type="submit">Kaydet</Button>
@@ -282,7 +289,7 @@ const ProvidersAdmin = () => {
                             <TableHead>Logo</TableHead>
                             <TableHead>Ad</TableHead>
                             <TableHead>Web Sitesi</TableHead>
-                            <TableHead>Ort. Derecelendirme</TableHead>
+                            <TableHead>Ortalama Derecelendirme</TableHead>
                             <TableHead className="text-right">İşlemler</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -291,18 +298,22 @@ const ProvidersAdmin = () => {
                             <TableRow key={provider.id}>
                                 <TableCell className="font-medium">{provider.id}</TableCell>
                                 <TableCell>
-                                    <Avatar className="h-10 w-10">
-                                        <AvatarImage src={provider.logo_url || `https://placehold.co/40x40/aabbcc/ffffff?text=${provider.name.charAt(0)}`} alt={`${provider.name} Logo`} />
+                                    <Avatar>
+                                        <AvatarImage src={provider.logo_url || `https://placehold.co/40x40/e2e8f0/000000?text=${provider.name.charAt(0)}`} alt={provider.name} />
                                         <AvatarFallback>{provider.name.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                 </TableCell>
                                 <TableCell>{provider.name}</TableCell>
                                 <TableCell>
-                                    <a href={provider.website_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                        {provider.website_url.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0]}
-                                    </a>
+                                    {provider.website_url ? (
+                                        <a href={provider.website_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                            {provider.website_url.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0]}
+                                        </a>
+                                    ) : (
+                                        '-'
+                                    )}
                                 </TableCell>
-                                <TableCell>{provider.average_rating || 'N/A'}</TableCell>
+                                <TableCell>{provider.average_rating?.toFixed(1) || 'N/A'}</TableCell>
                                 <TableCell className="text-right space-x-2">
                                     <Button variant="outline" size="sm" onClick={() => handleEditClick(provider)}>
                                         Düzenle

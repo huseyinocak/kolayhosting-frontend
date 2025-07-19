@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useForm, Controller } from 'react-hook-form'; // Controller'ı da içe aktar
+import { zodResolver } from '@hookform/resolvers/zod'; // Zod resolver'ı içe aktar
+import * as z from 'zod'; // Zod kütüphanesini içe aktar
 import {
     getAllReviews,
     updateReview,
@@ -38,28 +41,49 @@ import {
 } from '../../components/ui/select'; // Dropdown seçimleri için
 import { Badge } from '../../components/ui/badge'; // Yorum durumu için
 
+// Zod ile yorum formunun şemasını tanımla
+const reviewSchema = z.object({
+    title: z.string().min(2, { message: "Yorum başlığı en az 2 karakter olmalıdır." }),
+    content: z.string().min(10, { message: "Yorum içeriği en az 10 karakter olmalıdır." }),
+    rating: z.preprocess(
+        (val) => Number(val),
+        z.number().min(1, { message: "Derecelendirme en az 1 olmalıdır." }).max(5, { message: "Derecelendirme en fazla 5 olmalıdır." })
+    ),
+    status: z.enum(["pending", "approved", "rejected"], {
+        required_error: "Yorum durumu seçilmelidir.",
+        invalid_type_error: "Geçersiz yorum durumu.",
+    }),
+});
+
 const ReviewsAdmin = () => {
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [currentReview, setCurrentReview] = useState(null); // Düzenlenecek yorum
-
-    // Form alanları
-    const [reviewTitle, setReviewTitle] = useState('');
-    const [reviewContent, setReviewContent] = useState('');
-    const [reviewRating, setReviewRating] = useState('');
-    const [reviewStatus, setReviewStatus] = useState(''); // 'pending', 'approved', 'rejected'
     const { toast } = useToastContext();
+
+    // useForm hook'unu başlat
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+        reset, // Formu sıfırlamak için
+        setValue, // Form alanlarına değer atamak için
+        control, // Controller bileşeni için
+    } = useForm({
+        resolver: zodResolver(reviewSchema),
+    });
 
     // Yorumları API'den çekme fonksiyonu
     const fetchReviews = async () => {
         setLoading(true);
         try {
-            const data = await getAllReviews();
+            const data = await getAllReviews(); // Tüm yorumları (admin için) çek
             setReviews(data);
         } catch (err) {
-            setError(err.message || 'Yorumlar yüklenirken bir hata oluştu.');
+            console.error('Yorumlar yüklenirken hata:', err);
+            setError('Yorumlar yüklenemedi. Lütfen daha sonra tekrar deneyin.');
             toast({
                 title: 'Hata',
                 description: 'Yorumlar yüklenirken bir sorun oluştu.',
@@ -74,27 +98,29 @@ const ReviewsAdmin = () => {
         fetchReviews();
     }, []);
 
-    // Yorumu düzenleme
-    const handleSaveReview = async (e) => {
-        e.preventDefault();
-        if (!reviewTitle.trim() || !reviewContent.trim() || !reviewRating || !reviewStatus.trim()) {
-            toast({
-                title: 'Uyarı',
-                description: 'Yorum başlığı, içeriği, derecelendirme ve durum boş bırakılamaz.',
-                variant: 'warning',
-            });
-            return;
+    // Diyalog açıldığında veya currentReview değiştiğinde formu doldur
+    useEffect(() => {
+        if (isDialogOpen && currentReview) {
+            setValue('title', currentReview.title);
+            setValue('content', currentReview.content);
+            setValue('rating', String(currentReview.rating)); // Select için string olarak ayarla
+            setValue('status', currentReview.status);
+        } else if (!isDialogOpen) {
+            reset(); // Diyalog kapandığında formu sıfırla
+            setCurrentReview(null); // currentReview'ı da sıfırla
         }
+    }, [isDialogOpen, currentReview, reset, setValue]);
 
-        const payload = {
-            title: reviewTitle,
-            content: reviewContent,
-            rating: parseFloat(reviewRating),
-            status: reviewStatus,
-        };
-
+    // Yorumu düzenleme
+    const onSubmit = async (data) => {
         try {
+            const payload = {
+                ...data,
+                rating: Number(data.rating), // Number'a çevir
+            };
+
             if (currentReview) {
+                // Yorumu düzenle
                 await updateReview(currentReview.id, payload);
                 toast({
                     title: 'Başarılı',
@@ -102,12 +128,11 @@ const ReviewsAdmin = () => {
                 });
             }
             setIsDialogOpen(false); // Diyaloğu kapat
-            resetForm(); // Formu sıfırla
             fetchReviews(); // Yorumları yeniden çek
         } catch (err) {
             toast({
                 title: 'Hata',
-                description: `Yorum kaydedilirken bir sorun oluştu: ${err.message || ''}`,
+                description: `Yorum kaydedilirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                 variant: 'destructive',
             });
         }
@@ -116,10 +141,6 @@ const ReviewsAdmin = () => {
     // Yorum düzenleme diyaloğunu açma
     const handleEditClick = (review) => {
         setCurrentReview(review);
-        setReviewTitle(review.title);
-        setReviewContent(review.content);
-        setReviewRating(String(review.rating));
-        setReviewStatus(review.status);
         setIsDialogOpen(true);
     };
 
@@ -136,28 +157,20 @@ const ReviewsAdmin = () => {
             } catch (err) {
                 toast({
                     title: 'Hata',
-                    description: `Yorum silinirken bir sorun oluştu: ${err.message || ''}`,
+                    description: `Yorum silinirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                     variant: 'destructive',
                 });
             }
         }
     };
 
-    // Formu sıfırlama
-    const resetForm = () => {
-        setCurrentReview(null);
-        setReviewTitle('');
-        setReviewContent('');
-        setReviewRating('');
-        setReviewStatus('');
-    };
-
+    // Yorum durumu için Badge varyantı belirleme
     const getStatusBadgeVariant = (status) => {
         switch (status) {
-            case 'approved':
-                return 'default'; // Veya 'success' gibi bir varyantınız varsa
             case 'pending':
                 return 'secondary';
+            case 'approved':
+                return 'default';
             case 'rejected':
                 return 'destructive';
             default:
@@ -194,14 +207,18 @@ const ReviewsAdmin = () => {
                 Yorum Yönetimi
             </h1>
 
-            {/* Yeni yorum ekleme butonu yorumlar genellikle admin panelinden eklenmez,
-                ancak düzenleme ve silme için bir diyalog kullanabiliriz.
-                Yine de bir "Yeni Yorum Ekle" butonu bırakıyorum, isterseniz kaldırabilirsiniz.
+            {/* Yorum ekleme butonu yorumlar admin panelinde genellikle olmaz,
+                çünkü yorumlar kullanıcılar tarafından eklenir ve admin sadece yönetir.
+                Ancak manuel ekleme senaryosu için tutulabilir.
+                Şimdilik kaldırılmıştır, ihtiyaca göre eklenebilir.
             */}
-            <div className="flex justify-end mb-6">
+            {/* <div className="flex justify-end mb-6">
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
-                        <Button onClick={resetForm}>Yeni Yorum Ekle</Button>
+                        <Button onClick={() => {
+                            setCurrentReview(null);
+                            setIsDialogOpen(true);
+                        }}>Yeni Yorum Ekle</Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[425px]">
                         <DialogHeader>
@@ -212,18 +229,17 @@ const ReviewsAdmin = () => {
                                     : 'Yeni bir yorum oluşturmak için bilgileri girin.'}
                             </DialogDescription>
                         </DialogHeader>
-                        <form onSubmit={handleSaveReview} className="grid gap-4 py-4">
+                        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="title" className="text-right">
                                     Başlık
                                 </Label>
                                 <Input
                                     id="title"
-                                    value={reviewTitle}
-                                    onChange={(e) => setReviewTitle(e.target.value)}
+                                    {...register("title")}
                                     className="col-span-3"
-                                    required
                                 />
+                                {errors.title && <p className="col-span-4 text-red-500 text-sm text-right">{errors.title.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="content" className="text-right">
@@ -231,42 +247,140 @@ const ReviewsAdmin = () => {
                                 </Label>
                                 <Textarea
                                     id="content"
-                                    value={reviewContent}
-                                    onChange={(e) => setReviewContent(e.target.value)}
+                                    {...register("content")}
                                     className="col-span-3"
-                                    required
                                 />
+                                {errors.content && <p className="col-span-4 text-red-500 text-sm text-right">{errors.content.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="rating" className="text-right">
                                     Derecelendirme
                                 </Label>
-                                <Input
-                                    id="rating"
-                                    value={reviewRating}
-                                    onChange={(e) => setReviewRating(e.target.value)}
-                                    className="col-span-3"
-                                    type="number"
-                                    step="1"
-                                    min="0"
-                                    max="5"
-                                    required
+                                <Controller
+                                    name="rating"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value} className="col-span-3">
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Derecelendirme Seçin" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {[1, 2, 3, 4, 5].map(num => (
+                                                    <SelectItem key={num} value={String(num)}>{num}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
                                 />
+                                {errors.rating && <p className="col-span-4 text-red-500 text-sm text-right">{errors.rating.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="status" className="text-right">
                                     Durum
                                 </Label>
-                                <Select onValueChange={setReviewStatus} value={reviewStatus} required>
-                                    <SelectTrigger className="col-span-3">
-                                        <SelectValue placeholder="Durum Seçin" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="pending">Beklemede</SelectItem>
-                                        <SelectItem value="approved">Onaylandı</SelectItem>
-                                        <SelectItem value="rejected">Reddedildi</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <Controller
+                                    name="status"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value} className="col-span-3">
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Durum Seçin" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="pending">Beklemede</SelectItem>
+                                                <SelectItem value="approved">Onaylandı</SelectItem>
+                                                <SelectItem value="rejected">Reddedildi</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                {errors.status && <p className="col-span-4 text-red-500 text-sm text-right">{errors.status.message}</p>}
+                            </div>
+                            <DialogFooter>
+                                <Button type="submit">Kaydet</Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+            </div> */}
+
+            {/* Yorumları düzenlemek için sadece düzenleme diyaloğu */}
+            <div className="flex justify-end mb-6">
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                    {/* Trigger kaldırıldı, sadece düzenle butonu ile açılacak */}
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>Yorumu Düzenle</DialogTitle>
+                            <DialogDescription>
+                                Yorum bilgilerini güncelleyin.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="title" className="text-right">
+                                    Başlık
+                                </Label>
+                                <Input
+                                    id="title"
+                                    {...register("title")}
+                                    className="col-span-3"
+                                />
+                                {errors.title && <p className="col-span-4 text-red-500 text-sm text-right">{errors.title.message}</p>}
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="content" className="text-right">
+                                    İçerik
+                                </Label>
+                                <Textarea
+                                    id="content"
+                                    {...register("content")}
+                                    className="col-span-3"
+                                />
+                                {errors.content && <p className="col-span-4 text-red-500 text-sm text-right">{errors.content.message}</p>}
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="rating" className="text-right">
+                                    Derecelendirme
+                                </Label>
+                                <Controller
+                                    name="rating"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value} className="col-span-3">
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Derecelendirme Seçin" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {[1, 2, 3, 4, 5].map(num => (
+                                                    <SelectItem key={num} value={String(num)}>{num}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                {errors.rating && <p className="col-span-4 text-red-500 text-sm text-right">{errors.rating.message}</p>}
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="status" className="text-right">
+                                    Durum
+                                </Label>
+                                <Controller
+                                    name="status"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value} className="col-span-3">
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Durum Seçin" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="pending">Beklemede</SelectItem>
+                                                <SelectItem value="approved">Onaylandı</SelectItem>
+                                                <SelectItem value="rejected">Reddedildi</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                {errors.status && <p className="col-span-4 text-red-500 text-sm text-right">{errors.status.message}</p>}
                             </div>
                             <DialogFooter>
                                 <Button type="submit">Kaydet</Button>
@@ -275,6 +389,7 @@ const ReviewsAdmin = () => {
                     </DialogContent>
                 </Dialog>
             </div>
+
 
             {reviews.length > 0 ? (
                 <Table>
@@ -295,9 +410,8 @@ const ReviewsAdmin = () => {
                             <TableRow key={review.id}>
                                 <TableCell className="font-medium">{review.id}</TableCell>
                                 <TableCell>{review.title}</TableCell>
-                                {/* Yorum içeriği, backend'den doğru gelirse burada görünecektir. */}
-                                <TableCell className="max-w-[200px] whitespace-normal">{review.content}</TableCell>
-                                <TableCell>{review.rating} / 5</TableCell>
+                                <TableCell>{review.content.substring(0, 50)}...</TableCell> {/* İçeriği kısalt */}
+                                <TableCell>{review.rating}</TableCell>
                                 <TableCell>
                                     <Badge variant={getStatusBadgeVariant(review.status)}>
                                         {review.status === 'pending' && 'Beklemede'}

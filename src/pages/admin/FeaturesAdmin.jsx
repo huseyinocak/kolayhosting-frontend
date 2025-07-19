@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import { useForm, Controller } from 'react-hook-form'; // Controller'ı da içe aktar
+import { zodResolver } from '@hookform/resolvers/zod'; // Zod resolver'ı içe aktar
+import * as z from 'zod'; // Zod kütüphanesini içe aktar
 import {
     getAllFeatures,
     createFeature,
     updateFeature,
     deleteFeature,
-} from '../../api/plans'; // Özellik API fonksiyonlarını içe aktar (plans.js içinde tanımlı varsayılıyor)
+} from '../../api/features'; // Özellik API fonksiyonlarını src/api/features.js'den içe aktar
 import { useToastContext } from '../../hooks/toast-utils'; // Toast bildirimleri için
 
 // Shadcn UI bileşenleri
@@ -38,24 +41,41 @@ import {
     SelectValue,
 } from '../../components/ui/select'; // Dropdown seçimleri için
 
+// Zod ile özellik formunun şemasını tanımla
+const featureSchema = z.object({
+    name: z.string().min(2, { message: "Özellik adı en az 2 karakter olmalıdır." }),
+    unit: z.string().optional(),
+    type: z.enum(["numeric", "boolean", "text", "enum"], { // Belirli tiplerle kısıtla
+        required_error: "Özellik tipi seçilmelidir.",
+        invalid_type_error: "Geçersiz özellik tipi.",
+    }),
+});
+
 const FeaturesAdmin = () => {
     const [features, setFeatures] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [currentFeature, setCurrentFeature] = useState(null); // Düzenlenecek özellik
-
-    // Form alanları
-    const [featureName, setFeatureName] = useState('');
-    const [featureUnit, setFeatureUnit] = useState('');
-    const [featureType, setFeatureType] = useState(''); // Örneğin: 'numeric', 'boolean', 'text'
     const { toast } = useToastContext();
+
+    // useForm hook'unu başlat
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+        reset, // Formu sıfırlamak için
+        setValue, // Form alanlarına değer atamak için
+        control, // Controller bileşeni için
+    } = useForm({
+        resolver: zodResolver(featureSchema),
+    });
 
     // Özellikleri API'den çekme fonksiyonu
     const fetchFeatures = async () => {
         setLoading(true);
         try {
-            const data = await getAllFeatures();
+            const data = await getAllFeatures(); // src/api/features.js'den çağırılıyor
             setFeatures(data);
         } catch (err) {
             setError(err.message || 'Özellikler yüklenirken bir hata oluştu.');
@@ -73,47 +93,42 @@ const FeaturesAdmin = () => {
         fetchFeatures();
     }, []);
 
-    // Yeni özellik ekleme veya mevcut özelliği düzenleme
-    const handleSaveFeature = async (e) => {
-        e.preventDefault();
-        if (!featureName.trim() || !featureType.trim()) {
-            toast({
-                title: 'Uyarı',
-                description: 'Özellik adı ve tipi boş bırakılamaz.',
-                variant: 'warning',
-            });
-            return;
+    // Diyalog açıldığında veya currentFeature değiştiğinde formu doldur
+    useEffect(() => {
+        if (isDialogOpen && currentFeature) {
+            setValue('name', currentFeature.name);
+            setValue('unit', currentFeature.unit || '');
+            setValue('type', currentFeature.type || '');
+        } else if (!isDialogOpen) {
+            reset(); // Diyalog kapandığında formu sıfırla
+            setCurrentFeature(null); // currentFeature'yi de sıfırla
         }
+    }, [isDialogOpen, currentFeature, reset, setValue]);
 
-        const payload = {
-            name: featureName,
-            unit: featureUnit,
-            type: featureType,
-        };
-
+    // Yeni özellik ekleme veya mevcut özelliği düzenleme
+    const onSubmit = async (data) => {
         try {
             if (currentFeature) {
                 // Özelliği düzenle
-                await updateFeature(currentFeature.id, payload);
+                await updateFeature(currentFeature.id, data); // src/api/features.js'den çağırılıyor
                 toast({
                     title: 'Başarılı',
                     description: 'Özellik başarıyla güncellendi.',
                 });
             } else {
                 // Yeni özellik oluştur
-                await createFeature(payload);
+                await createFeature(data); // src/api/features.js'den çağırılıyor
                 toast({
                     title: 'Başarılı',
                     description: 'Yeni özellik başarıyla oluşturuldu.',
                 });
             }
             setIsDialogOpen(false); // Diyaloğu kapat
-            resetForm(); // Formu sıfırla
             fetchFeatures(); // Özellikleri yeniden çek
         } catch (err) {
             toast({
                 title: 'Hata',
-                description: `Özellik kaydedilirken bir sorun oluştu: ${err.message || ''}`,
+                description: `Özellik kaydedilirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                 variant: 'destructive',
             });
         }
@@ -122,9 +137,6 @@ const FeaturesAdmin = () => {
     // Özellik düzenleme diyaloğunu açma
     const handleEditClick = (feature) => {
         setCurrentFeature(feature);
-        setFeatureName(feature.name);
-        setFeatureUnit(feature.unit || '');
-        setFeatureType(feature.type || '');
         setIsDialogOpen(true);
     };
 
@@ -132,7 +144,7 @@ const FeaturesAdmin = () => {
     const handleDeleteFeature = async (featureId) => {
         if (window.confirm('Bu özelliği silmek istediğinizden emin misiniz?')) {
             try {
-                await deleteFeature(featureId);
+                await deleteFeature(featureId); // src/api/features.js'den çağırılıyor
                 toast({
                     title: 'Başarılı',
                     description: 'Özellik başarıyla silindi.',
@@ -141,19 +153,11 @@ const FeaturesAdmin = () => {
             } catch (err) {
                 toast({
                     title: 'Hata',
-                    description: `Özellik silinirken bir sorun oluştu: ${err.message || ''}`,
+                    description: `Özellik silinirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                     variant: 'destructive',
                 });
             }
         }
-    };
-
-    // Formu sıfırlama
-    const resetForm = () => {
-        setCurrentFeature(null);
-        setFeatureName('');
-        setFeatureUnit('');
-        setFeatureType('');
     };
 
     if (loading) {
@@ -188,7 +192,10 @@ const FeaturesAdmin = () => {
             <div className="flex justify-end mb-6">
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
-                        <Button onClick={resetForm}>Yeni Özellik Ekle</Button>
+                        <Button onClick={() => {
+                            setCurrentFeature(null); // Yeni ekleme için currentFeature'yi sıfırla
+                            setIsDialogOpen(true);
+                        }}>Yeni Özellik Ekle</Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[425px]">
                         <DialogHeader>
@@ -199,18 +206,17 @@ const FeaturesAdmin = () => {
                                     : 'Yeni bir özellik oluşturmak için bilgileri girin.'}
                             </DialogDescription>
                         </DialogHeader>
-                        <form onSubmit={handleSaveFeature} className="grid gap-4 py-4">
+                        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="name" className="text-right">
                                     Ad
                                 </Label>
                                 <Input
                                     id="name"
-                                    value={featureName}
-                                    onChange={(e) => setFeatureName(e.target.value)}
+                                    {...register("name")}
                                     className="col-span-3"
-                                    required
                                 />
+                                {errors.name && <p className="col-span-4 text-red-500 text-sm text-right">{errors.name.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="unit" className="text-right">
@@ -218,27 +224,35 @@ const FeaturesAdmin = () => {
                                 </Label>
                                 <Input
                                     id="unit"
-                                    value={featureUnit}
-                                    onChange={(e) => setFeatureUnit(e.target.value)}
+                                    {...register("unit")}
                                     className="col-span-3"
                                     placeholder="Örn: GB, Adet, Mbps"
                                 />
+                                {errors.unit && <p className="col-span-4 text-red-500 text-sm text-right">{errors.unit.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="type" className="text-right">
                                     Tip
                                 </Label>
-                                <Select onValueChange={setFeatureType} value={featureType} required>
-                                    <SelectTrigger className="col-span-3">
-                                        <SelectValue placeholder="Özellik Tipini Seçin" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="numeric">Sayısal</SelectItem>
-                                        <SelectItem value="boolean">Boolean (Evet/Hayır)</SelectItem>
-                                        <SelectItem value="text">Metin</SelectItem>
-                                        <SelectItem value="enum">Seçenekli</SelectItem> {/* Eğer enum tipleriniz varsa */}
-                                    </SelectContent>
-                                </Select>
+                                {/* Select bileşeni için Controller kullanıyoruz */}
+                                <Controller
+                                    name="type"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value} className="col-span-3">
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Özellik Tipini Seçin" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="numeric">Sayısal</SelectItem>
+                                                <SelectItem value="boolean">Boolean (Evet/Hayır)</SelectItem>
+                                                <SelectItem value="text">Metin</SelectItem>
+                                                <SelectItem value="enum">Seçenekli</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                {errors.type && <p className="col-span-4 text-red-500 text-sm text-right">{errors.type.message}</p>}
                             </div>
                             <DialogFooter>
                                 <Button type="submit">Kaydet</Button>

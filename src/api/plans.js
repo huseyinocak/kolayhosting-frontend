@@ -47,13 +47,13 @@ export const getPlanById = async (planId) => {
         const response = await plansApi.get(`/plans/${planId}`);
         return response.data.data;
     } catch (error) {
-        console.error(`Plan ID ${planId} detayları getirilirken hata:`, error.response?.data || error.message);
+        console.error(`Plan ID ${planId} getirilirken hata:`, error.response?.data || error.message);
         throw error;
     }
 };
 
 /**
- * Belirli bir plana ait özellikleri listeler.
+ * Belirli bir plana ait özellikleri getirir.
  * @param {string|number} planId - Plan ID'si
  * @returns {Promise<object[]>} Plan özellikleri listesi
  */
@@ -68,23 +68,22 @@ export const getPlanFeatures = async (planId) => {
 };
 
 /**
- * Belirli bir plana ait incelemeleri listeler.
+ * Belirli bir plana ait yorumları getirir.
  * @param {string|number} planId - Plan ID'si
- * @returns {Promise<object[]>} Plan incelemeleri listesi
+ * @returns {Promise<object[]>} Plan yorumları listesi
  */
 export const getPlanReviews = async (planId) => {
     try {
         const response = await plansApi.get(`/plans/${planId}/reviews`);
         return response.data.data;
     } catch (error) {
-        console.error(`Plan ID ${planId} incelemeleri getirilirken hata:`, error.response?.data || error.message);
+        console.error(`Plan ID ${planId} yorumları getirilirken hata:`, error.response?.data || error.message);
         throw error;
     }
 };
 
-// Admin işlemleri için (ileride kullanılacak)
 /**
- * Yeni bir plan oluşturur (Admin yetkisi gereklidir).
+ * Yeni bir hosting planı oluşturur (Admin yetkisi gereklidir).
  * @param {object} planData - Yeni plan bilgileri
  * @returns {Promise<object>} Oluşturulan plan
  */
@@ -99,7 +98,7 @@ export const createPlan = async (planData) => {
 };
 
 /**
- * Bir planı günceller (Admin yetkisi gereklidir).
+ * Bir hosting planını günceller (Admin yetkisi gereklidir).
  * @param {string|number} planId - Güncellenecek plan ID'si
  * @param {object} updatedData - Güncellenecek plan bilgileri
  * @returns {Promise<object>} Güncellenen plan
@@ -115,7 +114,7 @@ export const updatePlan = async (planId, updatedData) => {
 };
 
 /**
- * Bir planı siler (Admin yetkisi gereklidir).
+ * Bir hosting planını siler (Admin yetkisi gereklidir).
  * @param {string|number} planId - Silinecek plan ID'si
  * @returns {Promise<void>}
  */
@@ -127,63 +126,6 @@ export const deletePlan = async (planId) => {
         throw error;
     }
 };
-
- // Admin işlemleri için (Özellikler) - Yeni eklendi
-    /**
-     * Tüm özellikleri getirir (Admin yetkisi gereklidir).
-     * @returns {Promise<object[]>} Özellik listesi
-     */
-    export const getAllFeatures = async () => {
-        try {
-            const response = await plansApi.get('/features'); // API endpoint'i /features olarak varsayılmıştır
-            return response.data.data;
-        } catch (error) {
-            console.error('Tüm özellikleri getirirken hata:', error.response?.data || error.message);
-            throw error;
-        }
-    };
-
-    /**
-     * Yeni bir özellik oluşturur (Admin yetkisi gereklidir).
-     * @param {object} featureData - Yeni özellik bilgileri (name, unit, type, description)
-     * @returns {Promise<object>} Oluşturulan özellik
-     */
-    export const createFeature = async (featureData) => {
-        try {
-            const response = await plansApi.post('/features', featureData); // API endpoint'i /features olarak varsayılmıştır
-            return response.data.data;
-        } catch (error) {
-            console.error('Özellik oluştururken hata:', error.response?.data || error.message);
-            throw error;
-        }
-    };
-
-    /**
-     * Bir özelliği günceller (Admin yetkisi gereklidir).
-     * @param {string|number} featureId - Güncellenecek özellik ID'si
-     * @param {object} updatedData - Güncellenecek özellik bilgileri
-     * @returns {Promise<object>} Güncellenen özellik
-     */
-    export const updateFeature = async (featureId, updatedData) => {
-        try {
-            const response = await plansApi.put(`/features/${featureId}`, updatedData); // API endpoint'i /features/{id} olarak varsayılmıştır
-            return response.data.data;
-        } catch (error) {
-            console.error(`Özellik ID ${featureId} güncellenirken hata:`, error.response?.data || error.message);
-            throw error;
-        }
-    };
-
-    /**
-     * Bir özelliği siler (Admin yetkisi gereklidir).
-     * @param {string|number} featureId - Silinecek özellik ID'si
-     * @returns {Promise<void>}
-     */
-    export const deleteFeature = async (featureId) => {
-        try {
-            await plansApi.delete(`/features/${featureId}`); // API endpoint'i /features/{id} olarak varsayılmıştır
-        } catch (error) {
-            console.error(`Özellik ID ${featureId} silinirken hata:`, error.response?.data || error.message);
-            throw error;
-        }
-    };
+// NOT: Özellik yönetimi fonksiyonları (getAllFeatures, createFeature, updateFeature, deleteFeature)
+// artık bu dosyadan kaldırılmıştır ve src/api/features.js dosyasından import edilmelidir.
+// Bu, kod tekrarını önler ve modül sorumluluklarını daha net hale getirir.

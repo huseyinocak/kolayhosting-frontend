@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form'; // useForm hook'unu içe aktar
+import { zodResolver } from '@hookform/resolvers/zod'; // Zod resolver'ı içe aktar
+import * as z from 'zod'; // Zod kütüphanesini içe aktar
 import {
     getAllCategories,
     createCategory,
@@ -31,31 +34,47 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea'; // Açıklama için
 import { Skeleton } from '../../components/ui/skeleton'; // Yükleme iskeleti için
 
+// Zod ile kategori formunun şemasını tanımla
+const categorySchema = z.object({
+    name: z.string().min(2, { message: "Kategori adı en az 2 karakter olmalıdır." }),
+    description: z.string().optional(), // Açıklama alanı isteğe bağlı
+});
+
 const CategoriesAdmin = () => {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [currentCategory, setCurrentCategory] = useState(null); // Düzenlenecek kategori
-    const [categoryName, setCategoryName] = useState('');
-    const [categoryDescription, setCategoryDescription] = useState('');
     const { toast } = useToastContext();
+
+    // useForm hook'unu başlat
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+        reset, // Formu sıfırlamak için
+        setValue, // Form alanlarına değer atamak için
+    } = useForm({
+        resolver: zodResolver(categorySchema),
+    });
 
     // Kategorileri API'den çekme fonksiyonu
     const fetchCategories = async () => {
         setLoading(true);
         try {
-            const data = await getAllCategories();
-            setCategories(data);
+            const data = await getAllCategories(); // API'den kategorileri al
+            setCategories(data); // Kategorileri state'e ata
         } catch (err) {
-            setError(err.message || 'Kategoriler yüklenirken bir hata oluştu.');
+            console.error('Kategoriler yüklenirken hata:', err);
+            setError('Kategoriler yüklenemedi. Lütfen daha sonra tekrar deneyin.');
             toast({
                 title: 'Hata',
                 description: 'Kategoriler yüklenirken bir sorun oluştu.',
                 variant: 'destructive',
             });
         } finally {
-            setLoading(false);
+            setLoading(false); // Yükleme tamamlandı
         }
     };
 
@@ -63,47 +82,41 @@ const CategoriesAdmin = () => {
         fetchCategories();
     }, []);
 
-    // Yeni kategori ekleme veya mevcut kategoriyi düzenleme
-    const handleSaveCategory = async (e) => {
-        e.preventDefault();
-        if (!categoryName.trim() || !categoryDescription.trim()) {
-            toast({
-                title: 'Uyarı',
-                description: 'Kategori adı ve açıklaması boş bırakılamaz.',
-                variant: 'warning',
-            });
-            return;
+    // Diyalog açıldığında veya currentCategory değiştiğinde formu doldur
+    useEffect(() => {
+        if (isDialogOpen && currentCategory) {
+            setValue('name', currentCategory.name);
+            setValue('description', currentCategory.description || '');
+        } else if (!isDialogOpen) {
+            reset(); // Diyalog kapandığında formu sıfırla
+            setCurrentCategory(null); // currentCategory'yi de sıfırla
         }
+    }, [isDialogOpen, currentCategory, reset, setValue]);
 
+    // Yeni kategori ekleme veya mevcut kategori düzenleme
+    const onSubmit = async (data) => {
         try {
             if (currentCategory) {
                 // Kategoriyi düzenle
-                await updateCategory(currentCategory.id, {
-                    name: categoryName,
-                    description: categoryDescription,
-                });
+                await updateCategory(currentCategory.id, data);
                 toast({
                     title: 'Başarılı',
                     description: 'Kategori başarıyla güncellendi.',
                 });
             } else {
                 // Yeni kategori oluştur
-                await createCategory({
-                    name: categoryName,
-                    description: categoryDescription,
-                });
+                await createCategory(data);
                 toast({
                     title: 'Başarılı',
                     description: 'Yeni kategori başarıyla oluşturuldu.',
                 });
             }
             setIsDialogOpen(false); // Diyaloğu kapat
-            resetForm(); // Formu sıfırla
             fetchCategories(); // Kategorileri yeniden çek
         } catch (err) {
             toast({
                 title: 'Hata',
-                description: `Kategori kaydedilirken bir sorun oluştu: ${err.message || ''}`,
+                description: `Kategori kaydedilirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                 variant: 'destructive',
             });
         }
@@ -112,8 +125,6 @@ const CategoriesAdmin = () => {
     // Kategori düzenleme diyaloğunu açma
     const handleEditClick = (category) => {
         setCurrentCategory(category);
-        setCategoryName(category.name);
-        setCategoryDescription(category.description);
         setIsDialogOpen(true);
     };
 
@@ -130,18 +141,11 @@ const CategoriesAdmin = () => {
             } catch (err) {
                 toast({
                     title: 'Hata',
-                    description: `Kategori silinirken bir sorun oluştu: ${err.message || ''}`,
+                    description: `Kategori silinirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                     variant: 'destructive',
                 });
             }
         }
-    };
-
-    // Formu sıfırlama
-    const resetForm = () => {
-        setCurrentCategory(null);
-        setCategoryName('');
-        setCategoryDescription('');
     };
 
     if (loading) {
@@ -176,7 +180,10 @@ const CategoriesAdmin = () => {
             <div className="flex justify-end mb-6">
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
-                        <Button onClick={resetForm}>Yeni Kategori Ekle</Button>
+                        <Button onClick={() => {
+                            setCurrentCategory(null); // Yeni ekleme için currentCategory'yi sıfırla
+                            setIsDialogOpen(true);
+                        }}>Yeni Kategori Ekle</Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[425px]">
                         <DialogHeader>
@@ -187,18 +194,17 @@ const CategoriesAdmin = () => {
                                     : 'Yeni bir kategori oluşturmak için bilgileri girin.'}
                             </DialogDescription>
                         </DialogHeader>
-                        <form onSubmit={handleSaveCategory} className="grid gap-4 py-4">
+                        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="name" className="text-right">
                                     Ad
                                 </Label>
                                 <Input
                                     id="name"
-                                    value={categoryName}
-                                    onChange={(e) => setCategoryName(e.target.value)}
+                                    {...register("name")}
                                     className="col-span-3"
-                                    required
                                 />
+                                {errors.name && <p className="col-span-4 text-red-500 text-sm text-right">{errors.name.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="description" className="text-right">
@@ -206,11 +212,10 @@ const CategoriesAdmin = () => {
                                 </Label>
                                 <Textarea
                                     id="description"
-                                    value={categoryDescription}
-                                    onChange={(e) => setCategoryDescription(e.target.value)}
+                                    {...register("description")}
                                     className="col-span-3"
-                                    required
                                 />
+                                {errors.description && <p className="col-span-4 text-red-500 text-sm text-right">{errors.description.message}</p>}
                             </div>
                             <DialogFooter>
                                 <Button type="submit">Kaydet</Button>

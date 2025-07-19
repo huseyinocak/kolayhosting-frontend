@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useForm, Controller } from 'react-hook-form'; // Controller'ı da içe aktar
+import { zodResolver } from '@hookform/resolvers/zod'; // Zod resolver'ı içe aktar
+import * as z from 'zod'; // Zod kütüphanesini içe aktar
 import {
     getAllPlans,
     createPlan,
@@ -40,6 +43,29 @@ import {
     SelectValue,
 } from '../../components/ui/select'; // Dropdown seçimleri için
 
+// Zod ile plan formunun şemasını tanımla
+const planSchema = z.object({
+    name: z.string().min(2, { message: "Plan adı en az 2 karakter olmalıdır." }),
+    price: z.preprocess(
+        (val) => Number(val),
+        z.number().min(0, { message: "Fiyat sıfırdan küçük olamaz." })
+    ),
+    currency: z.string().min(1, { message: "Para birimi boş olamaz." }),
+    renewal_price: z.preprocess(
+        (val) => val === "" ? undefined : Number(val), // Boş stringi undefined olarak işle
+        z.number().min(0, { message: "Yenileme fiyatı sıfırdan küçük olamaz." }).optional()
+    ),
+    discount_percentage: z.preprocess(
+        (val) => val === "" ? undefined : Number(val), // Boş stringi undefined olarak işle
+        z.number().min(0, { message: "İndirim yüzdesi sıfırdan küçük olamaz." }).max(100, { message: "İndirim yüzdesi 100'den büyük olamaz." }).optional()
+    ),
+    summary: z.string().optional(),
+    link: z.string().url({ message: "Geçerli bir URL giriniz." }).optional().or(z.literal('')), // Boş stringi de kabul et
+    category_id: z.string().min(1, { message: "Kategori seçilmelidir." }), // Select için string olarak gelecek
+    provider_id: z.string().min(1, { message: "Sağlayıcı seçilmelidir." }), // Select için string olarak gelecek
+});
+
+
 const PlansAdmin = () => {
     const [plans, setPlans] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -48,19 +74,19 @@ const PlansAdmin = () => {
     const [error, setError] = useState(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [currentPlan, setCurrentPlan] = useState(null); // Düzenlenecek plan
-
-    // Form alanları
-    const [planName, setPlanName] = useState('');
-    const [planPrice, setPlanPrice] = useState('');
-    const [planCurrency, setPlanCurrency] = useState('USD'); // Varsayılan değer
-    const [planRenewalPrice, setPlanRenewalPrice] = useState('');
-    const [planDiscountPercentage, setPlanDiscountPercentage] = useState('');
-    const [planFeaturesSummary, setPlanFeaturesSummary] = useState('');
-    const [planLink, setPlanLink] = useState('');
-    const [planCategoryId, setPlanCategoryId] = useState('');
-    const [planProviderId, setPlanProviderId] = useState('');
-
     const { toast } = useToastContext();
+
+    // useForm hook'unu başlat
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+        reset, // Formu sıfırlamak için
+        setValue, // Form alanlarına değer atamak için
+        control, // Controller bileşeni için
+    } = useForm({
+        resolver: zodResolver(planSchema),
+    });
 
     // Planları, kategorileri ve sağlayıcıları API'den çekme fonksiyonu
     const fetchData = async () => {
@@ -75,7 +101,8 @@ const PlansAdmin = () => {
             setCategories(categoriesData);
             setProviders(providersData);
         } catch (err) {
-            setError(err.message || 'Veriler yüklenirken bir hata oluştu.');
+            console.error('Veriler yüklenirken hata:', err);
+            setError('Veriler yüklenemedi. Lütfen daha sonra tekrar deneyin.');
             toast({
                 title: 'Hata',
                 description: 'Veriler yüklenirken bir sorun oluştu.',
@@ -90,31 +117,34 @@ const PlansAdmin = () => {
         fetchData();
     }, []);
 
-    // Yeni plan ekleme veya mevcut planı düzenleme
-    const handleSavePlan = async (e) => {
-        e.preventDefault();
-        if (!planName.trim() || !planPrice || !planCategoryId || !planProviderId) {
-            toast({
-                title: 'Uyarı',
-                description: 'Plan adı, fiyatı, kategori ve sağlayıcı boş bırakılamaz.',
-                variant: 'warning',
-            });
-            return;
+    // Diyalog açıldığında veya currentPlan değiştiğinde formu doldur
+    useEffect(() => {
+        if (isDialogOpen && currentPlan) {
+            setValue('name', currentPlan.name);
+            setValue('price', currentPlan.price);
+            setValue('currency', currentPlan.currency);
+            setValue('renewal_price', currentPlan.renewal_price || '');
+            setValue('discount_percentage', currentPlan.discount_percentage || '');
+            setValue('summary', currentPlan.summary || '');
+            setValue('link', currentPlan.link || '');
+            setValue('category_id', String(currentPlan.category_id)); // Select için string olarak ayarla
+            setValue('provider_id', String(currentPlan.provider_id)); // Select için string olarak ayarla
+        } else if (!isDialogOpen) {
+            reset(); // Diyalog kapandığında formu sıfırla
+            setCurrentPlan(null); // currentPlan'ı da sıfırla
         }
+    }, [isDialogOpen, currentPlan, reset, setValue]);
 
-        const payload = {
-            name: planName,
-            price: parseFloat(planPrice),
-            currency: planCurrency,
-            renewal_price: planRenewalPrice ? parseFloat(planRenewalPrice) : null,
-            discount_percentage: planDiscountPercentage ? parseFloat(planDiscountPercentage) : null,
-            features_summary: planFeaturesSummary,
-            link: planLink,
-            category_id: parseInt(planCategoryId),
-            provider_id: parseInt(planProviderId),
-        };
-
+    // Yeni plan ekleme veya mevcut planı düzenleme
+    const onSubmit = async (data) => {
         try {
+            // category_id ve provider_id'yi number'a çevir
+            const payload = {
+                ...data,
+                category_id: Number(data.category_id),
+                provider_id: Number(data.provider_id),
+            };
+
             if (currentPlan) {
                 // Planı düzenle
                 await updatePlan(currentPlan.id, payload);
@@ -131,12 +161,11 @@ const PlansAdmin = () => {
                 });
             }
             setIsDialogOpen(false); // Diyaloğu kapat
-            resetForm(); // Formu sıfırla
             fetchData(); // Planları yeniden çek
         } catch (err) {
             toast({
                 title: 'Hata',
-                description: `Plan kaydedilirken bir sorun oluştu: ${err.message || ''}`,
+                description: `Plan kaydedilirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                 variant: 'destructive',
             });
         }
@@ -145,15 +174,6 @@ const PlansAdmin = () => {
     // Plan düzenleme diyaloğunu açma
     const handleEditClick = (plan) => {
         setCurrentPlan(plan);
-        setPlanName(plan.name);
-        setPlanPrice(String(plan.price));
-        setPlanCurrency(plan.currency || 'USD');
-        setPlanRenewalPrice(plan.renewal_price ? String(plan.renewal_price) : '');
-        setPlanDiscountPercentage(plan.discount_percentage ? String(plan.discount_percentage) : '');
-        setPlanFeaturesSummary(plan.features_summary || '');
-        setPlanLink(plan.link || '');
-        setPlanCategoryId(String(plan.category_id));
-        setPlanProviderId(String(plan.provider_id));
         setIsDialogOpen(true);
     };
 
@@ -170,25 +190,11 @@ const PlansAdmin = () => {
             } catch (err) {
                 toast({
                     title: 'Hata',
-                    description: `Plan silinirken bir sorun oluştu: ${err.message || ''}`,
+                    description: `Plan silinirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                     variant: 'destructive',
                 });
             }
         }
-    };
-
-    // Formu sıfırlama
-    const resetForm = () => {
-        setCurrentPlan(null);
-        setPlanName('');
-        setPlanPrice('');
-        setPlanCurrency('USD');
-        setPlanRenewalPrice('');
-        setPlanDiscountPercentage('');
-        setPlanFeaturesSummary('');
-        setPlanLink('');
-        setPlanCategoryId('');
-        setPlanProviderId('');
     };
 
     if (loading) {
@@ -223,9 +229,12 @@ const PlansAdmin = () => {
             <div className="flex justify-end mb-6">
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
-                        <Button onClick={resetForm}>Yeni Plan Ekle</Button>
+                        <Button onClick={() => {
+                            setCurrentPlan(null); // Yeni ekleme için currentPlan'ı sıfırla
+                            setIsDialogOpen(true);
+                        }}>Yeni Plan Ekle</Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[600px]"> {/* Diyalog genişliği artırıldı */}
+                    <DialogContent className="sm:max-w-[600px]"> {/* Daha geniş diyalog */}
                         <DialogHeader>
                             <DialogTitle>{currentPlan ? 'Planı Düzenle' : 'Yeni Plan Ekle'}</DialogTitle>
                             <DialogDescription>
@@ -234,18 +243,17 @@ const PlansAdmin = () => {
                                     : 'Yeni bir plan oluşturmak için bilgileri girin.'}
                             </DialogDescription>
                         </DialogHeader>
-                        <form onSubmit={handleSavePlan} className="grid gap-4 py-4">
+                        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="name" className="text-right">
                                     Ad
                                 </Label>
                                 <Input
                                     id="name"
-                                    value={planName}
-                                    onChange={(e) => setPlanName(e.target.value)}
+                                    {...register("name")}
                                     className="col-span-3"
-                                    required
                                 />
+                                {errors.name && <p className="col-span-4 text-red-500 text-sm text-right">{errors.name.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="price" className="text-right">
@@ -253,23 +261,24 @@ const PlansAdmin = () => {
                                 </Label>
                                 <Input
                                     id="price"
-                                    value={planPrice}
-                                    onChange={(e) => setPlanPrice(e.target.value)}
-                                    className="col-span-2"
                                     type="number"
                                     step="0.01"
-                                    required
+                                    {...register("price")}
+                                    className="col-span-3"
                                 />
-                                <Select onValueChange={setPlanCurrency} value={planCurrency}>
-                                    <SelectTrigger className="col-span-1">
-                                        <SelectValue placeholder="Para Birimi" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="USD">USD</SelectItem>
-                                        <SelectItem value="EUR">EUR</SelectItem>
-                                        <SelectItem value="TRY">TRY</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                {errors.price && <p className="col-span-4 text-red-500 text-sm text-right">{errors.price.message}</p>}
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="currency" className="text-right">
+                                    Para Birimi
+                                </Label>
+                                <Input
+                                    id="currency"
+                                    {...register("currency")}
+                                    className="col-span-3"
+                                    placeholder="Örn: USD, TL"
+                                />
+                                {errors.currency && <p className="col-span-4 text-red-500 text-sm text-right">{errors.currency.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="renewal_price" className="text-right">
@@ -277,13 +286,13 @@ const PlansAdmin = () => {
                                 </Label>
                                 <Input
                                     id="renewal_price"
-                                    value={planRenewalPrice}
-                                    onChange={(e) => setPlanRenewalPrice(e.target.value)}
-                                    className="col-span-3"
                                     type="number"
                                     step="0.01"
-                                    placeholder="Opsiyonel"
+                                    {...register("renewal_price")}
+                                    className="col-span-3"
+                                    placeholder="İsteğe bağlı"
                                 />
+                                {errors.renewal_price && <p className="col-span-4 text-red-500 text-sm text-right">{errors.renewal_price.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="discount_percentage" className="text-right">
@@ -291,74 +300,86 @@ const PlansAdmin = () => {
                                 </Label>
                                 <Input
                                     id="discount_percentage"
-                                    value={planDiscountPercentage}
-                                    onChange={(e) => setPlanDiscountPercentage(e.target.value)}
-                                    className="col-span-3"
                                     type="number"
                                     step="0.01"
-                                    min="0"
-                                    max="100"
-                                    placeholder="Opsiyonel"
+                                    {...register("discount_percentage")}
+                                    className="col-span-3"
+                                    placeholder="İsteğe bağlı"
                                 />
+                                {errors.discount_percentage && <p className="col-span-4 text-red-500 text-sm text-right">{errors.discount_percentage.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="features_summary" className="text-right">
-                                    Özellik Özeti
+                                <Label htmlFor="summary" className="text-right">
+                                    Özet
                                 </Label>
                                 <Textarea
-                                    id="features_summary"
-                                    value={planFeaturesSummary}
-                                    onChange={(e) => setPlanFeaturesSummary(e.target.value)}
+                                    id="summary"
+                                    {...register("summary")}
                                     className="col-span-3"
-                                    placeholder="Kısa özellik özeti"
+                                    placeholder="Planın kısa özeti"
                                 />
+                                {errors.summary && <p className="col-span-4 text-red-500 text-sm text-right">{errors.summary.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="link" className="text-right">
-                                    Plan Linki
+                                    Link
                                 </Label>
                                 <Input
                                     id="link"
-                                    value={planLink}
-                                    onChange={(e) => setPlanLink(e.target.value)}
-                                    className="col-span-3"
                                     type="url"
-                                    placeholder="https://saglayici.com/plan-linki"
+                                    {...register("link")}
+                                    className="col-span-3"
+                                    placeholder="Planın satın alma linki"
                                 />
+                                {errors.link && <p className="col-span-4 text-red-500 text-sm text-right">{errors.link.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="category" className="text-right">
+                                <Label htmlFor="category_id" className="text-right">
                                     Kategori
                                 </Label>
-                                <Select onValueChange={setPlanCategoryId} value={planCategoryId}>
-                                    <SelectTrigger className="col-span-3">
-                                        <SelectValue placeholder="Kategori Seçin" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {categories.map((category) => (
-                                            <SelectItem key={category.id} value={String(category.id)}>
-                                                {category.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Controller
+                                    name="category_id"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value} className="col-span-3">
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Kategori Seçin" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {categories.map(category => (
+                                                    <SelectItem key={category.id} value={String(category.id)}>
+                                                        {category.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                {errors.category_id && <p className="col-span-4 text-red-500 text-sm text-right">{errors.category_id.message}</p>}
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="provider" className="text-right">
+                                <Label htmlFor="provider_id" className="text-right">
                                     Sağlayıcı
                                 </Label>
-                                <Select onValueChange={setPlanProviderId} value={planProviderId}>
-                                    <SelectTrigger className="col-span-3">
-                                        <SelectValue placeholder="Sağlayıcı Seçin" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {providers.map((provider) => (
-                                            <SelectItem key={provider.id} value={String(provider.id)}>
-                                                {provider.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Controller
+                                    name="provider_id"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value} className="col-span-3">
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Sağlayıcı Seçin" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {providers.map(provider => (
+                                                    <SelectItem key={provider.id} value={String(provider.id)}>
+                                                        {provider.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                {errors.provider_id && <p className="col-span-4 text-red-500 text-sm text-right">{errors.provider_id.message}</p>}
                             </div>
                             <DialogFooter>
                                 <Button type="submit">Kaydet</Button>
