@@ -72,7 +72,9 @@ const PlansAdmin = () => {
     const [providers, setProviders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isDialogOpen, setIsDialogOpen] = useState(false); // Ekleme/Düzenleme diyaloğu
+    const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false); // Onay diyaloğu
+    const [planToDeleteId, setPlanToDeleteId] = useState(null); // Silinecek plan ID'si
     const [currentPlan, setCurrentPlan] = useState(null); // Düzenlenecek plan
     const { toast } = useToastContext();
 
@@ -177,11 +179,18 @@ const PlansAdmin = () => {
         setIsDialogOpen(true);
     };
 
-    // Plan silme
-    const handleDeletePlan = async (planId) => {
-        if (window.confirm('Bu planı silmek istediğinizden emin misiniz?')) {
+    // Plan silme onay diyaloğunu açma
+    const handleDeleteClick = (planId) => {
+        setPlanToDeleteId(planId);
+        setIsConfirmDialogOpen(true);
+    };
+
+    // Plan silme işlemini gerçekleştirme
+    const confirmDeletePlan = async () => {
+        setIsConfirmDialogOpen(false); // Onay diyaloğunu kapat
+        if (planToDeleteId) {
             try {
-                await deletePlan(planId);
+                await deletePlan(planToDeleteId);
                 toast({
                     title: 'Başarılı',
                     description: 'Plan başarıyla silindi.',
@@ -193,6 +202,8 @@ const PlansAdmin = () => {
                     description: `Plan silinirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                     variant: 'destructive',
                 });
+            } finally {
+                setPlanToDeleteId(null); // Silinecek ID'yi sıfırla
             }
         }
     };
@@ -413,7 +424,7 @@ const PlansAdmin = () => {
                                     <Button variant="outline" size="sm" onClick={() => handleEditClick(plan)}>
                                         Düzenle
                                     </Button>
-                                    <Button variant="destructive" size="sm" onClick={() => handleDeletePlan(plan.id)}>
+                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(plan.id)}>
                                         Sil
                                     </Button>
                                 </TableCell>
@@ -426,6 +437,26 @@ const PlansAdmin = () => {
                     Henüz hiç plan bulunmamaktadır.
                 </div>
             )}
+
+            {/* Silme Onay Diyaloğu */}
+            <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Silme Onayı</DialogTitle>
+                        <DialogDescription>
+                            Bu planı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+                            İptal
+                        </Button>
+                        <Button variant="destructive" onClick={confirmDeletePlan}>
+                            Sil
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

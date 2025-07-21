@@ -14,12 +14,12 @@ import { Button } from '../components/ui/button';
 
 // Zod ile giriş formunun şemasını tanımla
 const loginSchema = z.object({
-    email: z.string().email({ message: "Geçerli bir e-posta adresi giriniz." }),
+    email: z.email({ message: "Geçerli bir e-posta adresi giriniz." }),
     password: z.string().min(6, { message: "Şifre en az 6 karakter olmalıdır." }),
 });
 
 const LoginPage = () => {
-    const { login, loading, error } = useAuth();
+    const { login, loading } = useAuth(); // 'error' state'i hala burada, ancak doğrudan kullanılmayacak
     const navigate = useNavigate();
     const { toast } = useToastContext(); // useToastContext'ten toast fonksiyonunu alıyoruz
 
@@ -47,10 +47,11 @@ const LoginPage = () => {
             });
             navigate('/');
             reset(); // Formu sıfırla
-        } catch {
+        } catch (err) { // Hata objesini yakala
+            const errorMessage = err.response?.data?.message || err.message || "E-posta veya şifre yanlış.";
             toast({
                 title: "Giriş Hatası",
-                description: error || "E-posta veya şifre yanlış.",
+                description: errorMessage, // Yakalanan hata mesajını kullan
                 variant: "destructive",
             });
         }

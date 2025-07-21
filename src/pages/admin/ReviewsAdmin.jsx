@@ -59,7 +59,9 @@ const ReviewsAdmin = () => {
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isDialogOpen, setIsDialogOpen] = useState(false); // Düzenleme diyaloğu
+    const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false); // Onay diyaloğu
+    const [reviewToDeleteId, setReviewToDeleteId] = useState(null); // Silinecek yorum ID'si
     const [currentReview, setCurrentReview] = useState(null); // Düzenlenecek yorum
     const { toast } = useToastContext();
 
@@ -144,11 +146,18 @@ const ReviewsAdmin = () => {
         setIsDialogOpen(true);
     };
 
-    // Yorum silme
-    const handleDeleteReview = async (reviewId) => {
-        if (window.confirm('Bu yorumu silmek istediğinizden emin misiniz?')) {
+    // Yorum silme onay diyaloğunu açma
+    const handleDeleteClick = (reviewId) => {
+        setReviewToDeleteId(reviewId);
+        setIsConfirmDialogOpen(true);
+    };
+
+    // Yorum silme işlemini gerçekleştirme
+    const confirmDeleteReview = async () => {
+        setIsConfirmDialogOpen(false); // Onay diyaloğunu kapat
+        if (reviewToDeleteId) {
             try {
-                await deleteReview(reviewId);
+                await deleteReview(reviewToDeleteId);
                 toast({
                     title: 'Başarılı',
                     description: 'Yorum başarıyla silindi.',
@@ -160,6 +169,8 @@ const ReviewsAdmin = () => {
                     description: `Yorum silinirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                     variant: 'destructive',
                 });
+            } finally {
+                setReviewToDeleteId(null); // Silinecek ID'yi sıfırla
             }
         }
     };
@@ -425,7 +436,7 @@ const ReviewsAdmin = () => {
                                     <Button variant="outline" size="sm" onClick={() => handleEditClick(review)}>
                                         Düzenle
                                     </Button>
-                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteReview(review.id)}>
+                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(review.id)}>
                                         Sil
                                     </Button>
                                 </TableCell>
@@ -438,6 +449,26 @@ const ReviewsAdmin = () => {
                     Henüz hiç yorum bulunmamaktadır.
                 </div>
             )}
+
+            {/* Silme Onay Diyaloğu */}
+            <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Silme Onayı</DialogTitle>
+                        <DialogDescription>
+                            Bu yorumu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+                            İptal
+                        </Button>
+                        <Button variant="destructive" onClick={confirmDeleteReview}>
+                            Sil
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { setupAuthInterceptor } from '../utils/axiosInterceptors';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
@@ -10,30 +11,27 @@ const categoriesApi = axios.create({
     },
 });
 
-// Axios interceptor: Her istekten önce Authorization başlığını ekler
-categoriesApi.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('access_token'); // Token'ı localStorage'dan al
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
-    }
-);
+// Interceptor'ları setupAuthInterceptor utility'si ile ekle
+setupAuthInterceptor(categoriesApi);
 
 /**
- * Tüm kategorileri getirir.
- * @returns {Promise<object[]>} Kategori listesi
+ * Tüm hosting kategorilerini getirir (Pagination, Filtering, Sorting destekli).
+ * @param {object} params - Filtreleme, sıralama ve sayfalama parametreleri.
+ * @param {string} [params.name] - Kategori adına göre arama terimi.
+ * @param {string} [params.sort_by='name'] - Sıralanacak sütun (örn: 'name', 'created_at', 'updated_at').
+ * @param {string} [params.sort_order='asc'] - Sıralama düzeni ('asc' veya 'desc').
+ * @param {number} [params.page=1] - Geçerli sayfa numarası.
+ * @param {number} [params.per_page=10] - Sayfa başına kayıt sayısı.
+ * @returns {Promise<object>} Kategori listesi ve sayfalama bilgileri.
  */
-export const getAllCategories = async () => {
+export const getAllCategories = async (params = {}) => {
     try {
-        const response = await categoriesApi.get('/categories');
-        return response.data.data; // API yanıtının yapısına göre ayarlandı
+        const response = await categoriesApi.get('/categories', { params });
+        // API'den gelen verinin yapısına göre dönüşü ayarla
+        // Laravel paginate() kullandığı için response.data doğrudan pagination objesi olabilir
+        return response.data; // data, meta, links objelerini içerecek
     } catch (error) {
-        console.error('Tüm kategorileri getirirken hata:', error.response?.data || error.message);
+        console.error('Kategoriler getirilirken hata:', error.response?.data || error.message);
         throw error;
     }
 };
@@ -41,22 +39,21 @@ export const getAllCategories = async () => {
 /**
  * Belirli bir kategoriye ait planları getirir.
  * @param {string|number} categoryId - Kategori ID'si veya slug'ı
- * @returns {Promise<object[]>} Kategoriye ait plan listesi
+ * @returns {Promise<Array>} Kategoriye ait plan listesi
  */
 export const getPlansByCategory = async (categoryId) => {
     try {
         const response = await categoriesApi.get(`/categories/${categoryId}/plans`);
-        return response.data.data; // API yanıtının yapısına göre ayarlandı
+        return response.data.data;
     } catch (error) {
-        console.error(`Kategori ID ${categoryId} için planları getirirken hata:`, error.response?.data || error.message);
+        console.error(`Kategori ID ${categoryId} için planlar getirilirken hata:`, error.response?.data || error.message);
         throw error;
     }
 };
 
-// Admin işlemleri için (ileride kullanılacak)
 /**
- * Yeni bir kategori oluşturur (Admin yetkisi gereklidir).
- * @param {object} categoryData - Yeni kategori bilgileri (name, description)
+ * Yeni bir hosting kategorisi oluşturur (Admin yetkisi gereklidir).
+ * @param {object} categoryData - Yeni kategori bilgileri
  * @returns {Promise<object>} Oluşturulan kategori
  */
 export const createCategory = async (categoryData) => {
@@ -64,14 +61,13 @@ export const createCategory = async (categoryData) => {
         const response = await categoriesApi.post('/categories', categoryData);
         return response.data.data;
     } catch (error) {
-        console.error('Kategori oluştururken hata:', error.response?.data || error.message);
+        console.error('Kategori oluşturulurken hata:', error.response?.data || error.message);
         throw error;
     }
 };
 
-
 /**
- * Bir kategoriyi günceller (Admin yetkisi gereklidir).
+ * Bir hosting kategorisini günceller (Admin yetkisi gereklidir).
  * @param {string|number} categoryId - Güncellenecek kategori ID'si
  * @param {object} updatedData - Güncellenecek kategori bilgileri
  * @returns {Promise<object>} Güncellenen kategori
@@ -87,7 +83,7 @@ export const updateCategory = async (categoryId, updatedData) => {
 };
 
 /**
- * Bir kategoriyi siler (Admin yetkisi gereklidir).
+ * Bir hosting kategorisini siler (Admin yetkisi gereklidir).
  * @param {string|number} categoryId - Silinecek kategori ID'si
  * @returns {Promise<void>}
  */

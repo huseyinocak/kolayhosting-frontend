@@ -100,6 +100,62 @@ const ComparisonPage = () => {
                                             </Link>
                                             <p className="text-sm text-gray-500">{plan.provider?.name}</p>
                                             <p className="text-lg font-bold mt-1">{plan.currency} {plan.price}</p>
+                                            {/* Ortaklık Bağlantısı Butonu */}
+                                            {
+                                                plan.affiliate_url ? (
+                                                    <>
+                                                        <a
+                                                            href={plan.affiliate_url} // Affiliate URL varsa onu kullan, yoksa normal site URL'si
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="w-full mt-4"
+                                                            onClick={() => {
+                                                                if (window.gtag) {
+                                                                    window.gtag('event', 'affiliate_click', {
+                                                                        plan_id: plan.id,
+                                                                        plan_name: plan.name,
+                                                                        provider_name: plan.provider?.name,
+                                                                        affiliate_url: plan.affiliate_url,
+                                                                    });
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Button className="w-full md:w-auto px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:scale-105">
+                                                                Şimdi Satın Al
+                                                            </Button>
+                                                        </a>
+                                                        <p className="text-sm text-gray-500 dark:text-gray-400 my-2">
+                                                            Bu plan için ortaklık bağlantısı bulunmaktadır. KolayHosting üzerinden satın alarak destek olabilirsiniz.
+                                                        </p>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <a
+                                                            href={plan.website_url} // Affiliate URL varsa onu kullan, yoksa normal site URL'si
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="w-full mt-4"
+                                                            onClick={() => {
+                                                                if (window.gtag) {
+                                                                    window.gtag('event', 'affiliate_click', {
+                                                                        plan_id: plan.id,
+                                                                        plan_name: plan.name,
+                                                                        provider_name: plan.provider?.name,
+                                                                        website_url: plan.website_url,
+                                                                    });
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Button className="w-full md:w-auto px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:scale-105">
+                                                                Web Sitesine Git
+                                                            </Button>
+                                                        </a>
+                                                        <p className="text-sm text-gray-500 dark:text-gray-400 my-2">
+                                                            Bu plan için ortaklık bağlantısı bulunmamaktadır.
+                                                        </p>
+                                                    </>
+                                                )
+                                            }
                                         </div>
                                     </TableHead>
                                 ))}

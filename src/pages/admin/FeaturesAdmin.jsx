@@ -55,7 +55,9 @@ const FeaturesAdmin = () => {
     const [features, setFeatures] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isDialogOpen, setIsDialogOpen] = useState(false); // Ekleme/Düzenleme diyaloğu
+    const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false); // Onay diyaloğu
+    const [featureToDeleteId, setFeatureToDeleteId] = useState(null); // Silinecek özellik ID'si
     const [currentFeature, setCurrentFeature] = useState(null); // Düzenlenecek özellik
     const { toast } = useToastContext();
 
@@ -140,11 +142,18 @@ const FeaturesAdmin = () => {
         setIsDialogOpen(true);
     };
 
-    // Özellik silme
-    const handleDeleteFeature = async (featureId) => {
-        if (window.confirm('Bu özelliği silmek istediğinizden emin misiniz?')) {
+    // Özellik silme onay diyaloğunu açma
+    const handleDeleteClick = (featureId) => {
+        setFeatureToDeleteId(featureId);
+        setIsConfirmDialogOpen(true);
+    };
+
+    // Özellik silme işlemini gerçekleştirme
+    const confirmDeleteFeature = async () => {
+        setIsConfirmDialogOpen(false); // Onay diyaloğunu kapat
+        if (featureToDeleteId) {
             try {
-                await deleteFeature(featureId); // src/api/features.js'den çağırılıyor
+                await deleteFeature(featureToDeleteId); // src/api/features.js'den çağırılıyor
                 toast({
                     title: 'Başarılı',
                     description: 'Özellik başarıyla silindi.',
@@ -156,6 +165,8 @@ const FeaturesAdmin = () => {
                     description: `Özellik silinirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                     variant: 'destructive',
                 });
+            } finally {
+                setFeatureToDeleteId(null); // Silinecek ID'yi sıfırla
             }
         }
     };
@@ -284,7 +295,7 @@ const FeaturesAdmin = () => {
                                     <Button variant="outline" size="sm" onClick={() => handleEditClick(feature)}>
                                         Düzenle
                                     </Button>
-                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteFeature(feature.id)}>
+                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(feature.id)}>
                                         Sil
                                     </Button>
                                 </TableCell>
@@ -297,6 +308,26 @@ const FeaturesAdmin = () => {
                     Henüz hiç özellik bulunmamaktadır.
                 </div>
             )}
+
+            {/* Silme Onay Diyaloğu */}
+            <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Silme Onayı</DialogTitle>
+                        <DialogDescription>
+                            Bu özelliği silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+                            İptal
+                        </Button>
+                        <Button variant="destructive" onClick={confirmDeleteFeature}>
+                            Sil
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

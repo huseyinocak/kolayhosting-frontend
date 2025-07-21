@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { getPlansByCategory } from '../api/categories'; // Kategoriye göre planları getiren fonksiyon
 import { useToastContext } from '../hooks/toast-utils'; // Toast bildirimleri için
-import { useComparison } from '../context/ComparisonContext'; // Karşılaştırma bağlamı için
+import { useComparison } from '../hooks/useComparison'; // Karşılaştırma bağlamı için - YOL DÜZELTİLDİ
 
 // Shadcn UI bileşenleri
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';

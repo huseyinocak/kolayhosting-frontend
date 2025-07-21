@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { setupAuthInterceptor } from '../utils/axiosInterceptors'; // Yeni import
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
@@ -10,53 +11,26 @@ const featuresApi = axios.create({
     },
 });
 
-// Axios interceptor: Her istekten önce Authorization başlığını ekler
-featuresApi.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('access_token'); // Token'ı localStorage'dan al
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
-    }
-);
+// Interceptor'ları setupAuthInterceptor utility'si ile ekle
+setupAuthInterceptor(featuresApi);
 
 /**
- * Tüm özellikleri getirir.
- * @returns {Promise<object[]>} Özellik listesi
+ * Tüm hosting özelliklerini getirir.
+ * @returns {Promise<Array>} Özellik listesi
  */
 export const getAllFeatures = async () => {
     try {
         const response = await featuresApi.get('/features');
-        return response.data.data; // API yanıtının yapısına göre ayarlandı
-    } catch (error) {
-        console.error('Tüm özellikleri getirirken hata:', error.response?.data || error.message);
-        throw error;
-    }
-};
-
-/**
- * Belirli bir özelliği ID'sine göre getirir.
- * @param {string|number} featureId - Özellik ID'si
- * @returns {Promise<object>} Özellik detayları
- */
-export const getFeatureById = async (featureId) => {
-    try {
-        const response = await featuresApi.get(`/features/${featureId}`);
         return response.data.data;
     } catch (error) {
-        console.error(`Özellik ID ${featureId} detayları getirilirken hata:`, error.response?.data || error.message);
+        console.error('Özellikler getirilirken hata:', error.response?.data || error.message);
         throw error;
     }
 };
 
-// Admin işlemleri için (ileride kullanılacak)
 /**
  * Yeni bir özellik oluşturur (Admin yetkisi gereklidir).
- * @param {object} featureData - Yeni özellik bilgileri (name, unit, type)
+ * @param {object} featureData - Yeni özellik bilgileri
  * @returns {Promise<object>} Oluşturulan özellik
  */
 export const createFeature = async (featureData) => {

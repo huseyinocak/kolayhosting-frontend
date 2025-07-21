@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { setupAuthInterceptor } from '../utils/axiosInterceptors'; // Yeni import
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
@@ -9,38 +10,40 @@ const plansApi = axios.create({
         'Accept': 'application/json',
     },
 });
-// Axios interceptor: Her istekten önce Authorization başlığını ekler
-plansApi.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('access_token');
-        if (token) {
-            config.headers.Authorization= `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
-    }
-);
+
+// Interceptor'ları setupAuthInterceptor utility'si ile ekle
+setupAuthInterceptor(plansApi);
 
 /**
- * Tüm hosting planlarını getirir.
- * @returns {Promise<object[]>} Plan listesi
+ * Tüm hosting planlarını getirir (Pagination, Filtering, Sorting destekli).
+ * @param {object} params - Filtreleme, sıralama ve sayfalama parametreleri.
+ * @param {string} [params.name] - Plan adına göre arama terimi.
+ * @param {number} [params.price_min] - Minimum fiyat.
+ * @param {number} [params.price_max] - Maksimum fiyat.
+ * @param {string} [params.status] - Plan durumu.
+ * @param {number} [params.provider_id] - Sağlayıcı ID'si.
+ * @param {number} [params.category_id] - Kategori ID'si.
+ * @param {string} [params.sort_by='name'] - Sıralanacak sütun (örn: 'name', 'price', 'renewal_price', 'created_at', 'updated_at').
+ * @param {string} [params.sort_order='asc'] - Sıralama düzeni ('asc' veya 'desc').
+ * @param {number} [params.page=1] - Geçerli sayfa numarası.
+ * @param {number} [params.per_page=10] - Sayfa başına kayıt sayısı.
+ * @returns {Promise<object>} Plan listesi ve sayfalama bilgileri.
  */
-export const getAllPlans = async () => {
+export const getAllPlans = async (params = {}) => {
     try {
-        const response = await plansApi.get('/plans');
-        return response.data.data; // API yanıtının yapısına göre ayarlandı
+        const response = await plansApi.get('/plans', { params });
+        // Laravel paginate() kullandığı için response.data doğrudan pagination objesi olabilir
+        return response.data; // data, meta, links objelerini içerecek
     } catch (error) {
-        console.error('Tüm planları getirirken hata:', error.response?.data || error.message);
+        console.error('Planlar getirilirken hata:', error.response?.data || error.message);
         throw error;
     }
 };
 
 /**
- * Belirli bir plana ait detayları getirir.
+ * Belirli bir hosting planını ID'ye göre getirir.
  * @param {string|number} planId - Plan ID'si
- * @returns {Promise<object>} Plan detayları
+ * @returns {Promise<object>} Plan bilgileri
  */
 export const getPlanById = async (planId) => {
     try {
@@ -53,31 +56,31 @@ export const getPlanById = async (planId) => {
 };
 
 /**
- * Belirli bir plana ait özellikleri getirir.
+ * Bir plana ait özellikleri getirir.
  * @param {string|number} planId - Plan ID'si
- * @returns {Promise<object[]>} Plan özellikleri listesi
+ * @returns {Promise<Array>} Plan özellikleri listesi
  */
 export const getPlanFeatures = async (planId) => {
     try {
         const response = await plansApi.get(`/plans/${planId}/features`);
         return response.data.data;
     } catch (error) {
-        console.error(`Plan ID ${planId} özellikleri getirilirken hata:`, error.response?.data || error.message);
+        console.error(`Plan ID ${planId} için özellikler getirilirken hata:`, error.response?.data || error.message);
         throw error;
     }
 };
 
 /**
- * Belirli bir plana ait yorumları getirir.
+ * Bir plana ait yorumları getirir.
  * @param {string|number} planId - Plan ID'si
- * @returns {Promise<object[]>} Plan yorumları listesi
+ * @returns {Promise<Array>} Plan yorumları listesi
  */
 export const getPlanReviews = async (planId) => {
     try {
         const response = await plansApi.get(`/plans/${planId}/reviews`);
         return response.data.data;
     } catch (error) {
-        console.error(`Plan ID ${planId} yorumları getirilirken hata:`, error.response?.data || error.message);
+        console.error(`Plan ID ${planId} için yorumlar getirilirken hata:`, error.response?.data || error.message);
         throw error;
     }
 };
@@ -126,6 +129,3 @@ export const deletePlan = async (planId) => {
         throw error;
     }
 };
-// NOT: Özellik yönetimi fonksiyonları (getAllFeatures, createFeature, updateFeature, deleteFeature)
-// artık bu dosyadan kaldırılmıştır ve src/api/features.js dosyasından import edilmelidir.
-// Bu, kod tekrarını önler ve modül sorumluluklarını daha net hale getirir.

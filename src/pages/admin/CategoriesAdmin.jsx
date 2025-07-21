@@ -44,7 +44,9 @@ const CategoriesAdmin = () => {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isDialogOpen, setIsDialogOpen] = useState(false); // Ekleme/Düzenleme diyaloğu
+    const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false); // Onay diyaloğu
+    const [categoryToDeleteId, setCategoryToDeleteId] = useState(null); // Silinecek kategori ID'si
     const [currentCategory, setCurrentCategory] = useState(null); // Düzenlenecek kategori
     const { toast } = useToastContext();
 
@@ -128,11 +130,18 @@ const CategoriesAdmin = () => {
         setIsDialogOpen(true);
     };
 
-    // Kategori silme
-    const handleDeleteCategory = async (categoryId) => {
-        if (window.confirm('Bu kategoriyi silmek istediğinizden emin misiniz?')) {
+    // Kategori silme onay diyaloğunu açma
+    const handleDeleteClick = (categoryId) => {
+        setCategoryToDeleteId(categoryId);
+        setIsConfirmDialogOpen(true);
+    };
+
+    // Kategori silme işlemini gerçekleştirme
+    const confirmDeleteCategory = async () => {
+        setIsConfirmDialogOpen(false); // Onay diyaloğunu kapat
+        if (categoryToDeleteId) {
             try {
-                await deleteCategory(categoryId);
+                await deleteCategory(categoryToDeleteId);
                 toast({
                     title: 'Başarılı',
                     description: 'Kategori başarıyla silindi.',
@@ -144,6 +153,8 @@ const CategoriesAdmin = () => {
                     description: `Kategori silinirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                     variant: 'destructive',
                 });
+            } finally {
+                setCategoryToDeleteId(null); // Silinecek ID'yi sıfırla
             }
         }
     };
@@ -247,7 +258,7 @@ const CategoriesAdmin = () => {
                                     <Button variant="outline" size="sm" onClick={() => handleEditClick(category)}>
                                         Düzenle
                                     </Button>
-                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteCategory(category.id)}>
+                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(category.id)}>
                                         Sil
                                     </Button>
                                 </TableCell>
@@ -260,6 +271,26 @@ const CategoriesAdmin = () => {
                     Henüz hiç kategori bulunmamaktadır.
                 </div>
             )}
+
+            {/* Silme Onay Diyaloğu */}
+            <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Silme Onayı</DialogTitle>
+                        <DialogDescription>
+                            Bu kategoriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+                            İptal
+                        </Button>
+                        <Button variant="destructive" onClick={confirmDeleteCategory}>
+                            Sil
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

@@ -1,6 +1,5 @@
-// src/api/reviews.js
-
 import axios from 'axios';
+import { setupAuthInterceptor } from '../utils/axiosInterceptors'; // Yeni import
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
@@ -9,56 +8,29 @@ const reviewsApi = axios.create({
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-    }
+    },
 });
 
-// Axios interceptor: Her istekten önce Authorization başlığını ekler
-reviewsApi.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('access_token'); // Token'ı localStorage'dan al
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
-    }
-);
+// Interceptor'ları setupAuthInterceptor utility'si ile ekle
+setupAuthInterceptor(reviewsApi);
 
 /**
  * Tüm yorumları getirir (Admin yetkisi gereklidir).
- * @returns {Promise<object[]>} Yorum listesi
+ * @returns {Promise<Array>} Yorum listesi
  */
 export const getAllReviews = async () => {
     try {
-        const response = await reviewsApi.get('/reviews/all');
+        const response = await reviewsApi.get('/reviews');
         return response.data.data;
     } catch (error) {
-        console.error('Tüm yorumları getirirken hata:', error.response?.data || error.message);
+        console.error('Yorumlar getirilirken hata:', error.response?.data || error.message);
         throw error;
     }
 };
 
 /**
- * Public kullanıcıların görebileceği onaylanmış yorumları getirir.
- * Bu metod, genel kullanıcı sayfaları için kullanılır.
- * @returns {Promise<object[]>} Onaylanmış yorum listesi
- */
-export const getApprovedReviews = async () => {
-    try {
-        // Public kullanıcıların görebileceği onaylanmış yorumları getiren uç nokta
-        const response = await reviewsApi.get('/reviews'); // Bu, public kullanıcılar için
-        return response.data.data;
-    } catch (error) {
-        console.error('Onaylanmış yorumları getirirken hata:', error.response?.data || error.message);
-        throw error;
-    }
-};
-
-/**
- * Yeni bir yorum oluşturur (Kullanıcı yetkisi gereklidir).
- * @param {object} reviewData - Yeni yorum bilgileri (plan_id, user_id, title, content, rating)
+ * Yeni bir yorum oluşturur.
+ * @param {object} reviewData - Yeni yorum bilgileri (title, content, rating, plan_id veya provider_id, user_id)
  * @returns {Promise<object>} Oluşturulan yorum
  */
 export const createReview = async (reviewData) => {
@@ -66,7 +38,7 @@ export const createReview = async (reviewData) => {
         const response = await reviewsApi.post('/reviews', reviewData);
         return response.data.data;
     } catch (error) {
-        console.error('Yorum oluştururken hata:', error.response?.data || error.message);
+        console.error('Yorum oluşturulurken hata:', error.response?.data || error.message);
         throw error;
     }
 };
@@ -74,7 +46,7 @@ export const createReview = async (reviewData) => {
 /**
  * Bir yorumu günceller (Admin yetkisi gereklidir).
  * @param {string|number} reviewId - Güncellenecek yorum ID'si
- * @param {object} updatedData - Güncellenecek yorum bilgileri (title, content, rating, status)
+ * @param {object} updatedData - Güncellenecek yorum bilgileri
  * @returns {Promise<object>} Güncellenen yorum
  */
 export const updateReview = async (reviewId, updatedData) => {

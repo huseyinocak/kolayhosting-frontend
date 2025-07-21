@@ -1,6 +1,5 @@
-// src/api/providers.js
-
 import axios from 'axios';
+import { setupAuthInterceptor } from '../utils/axiosInterceptors'; // Yeni import
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
@@ -12,121 +11,116 @@ const providersApi = axios.create({
     },
 });
 
-// Axios interceptor: Her istekten önce Authorization başlığını ekler
-providersApi.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('access_token'); // Get token from localStorage
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
-    }
-);
+// Interceptor'ları setupAuthInterceptor utility'si ile ekle
+setupAuthInterceptor(providersApi);
 
 /**
- * Gets all hosting providers.
- * @returns {Promise<object[]>} List of providers
+ * Tüm hosting sağlayıcılarını getirir (Pagination, Filtering, Sorting destekli).
+ * @param {object} params - Filtreleme, sıralama ve sayfalama parametreleri.
+ * @param {string} [params.name] - Sağlayıcı adına göre arama terimi.
+ * @param {string} [params.sort_by='name'] - Sıralanacak sütun (örn: 'name', 'average_rating', 'created_at', 'updated_at').
+ * @param {string} [params.sort_order='asc'] - Sıralama düzeni ('asc' veya 'desc').
+ * @param {number} [params.page=1] - Geçerli sayfa numarası.
+ * @param {number} [params.per_page=10] - Sayfa başına kayıt sayısı.
+ * @returns {Promise<object>} Sağlayıcı listesi ve sayfalama bilgileri.
  */
-export const getAllProviders = async () => {
+export const getAllProviders = async (params = {}) => {
     try {
-        const response = await providersApi.get('/providers');
-        return response.data.data; // Adjusted according to API response structure
+        const response = await providersApi.get('/providers', { params });
+        // Laravel paginate() kullandığı için response.data doğrudan pagination objesi olabilir
+        return response.data; // data, meta, links objelerini içerecek
     } catch (error) {
-        console.error('Error fetching all providers:', error.response?.data || error.message);
+        console.error('Sağlayıcılar getirilirken hata:', error.response?.data || error.message);
         throw error;
     }
 };
 
 /**
- * Gets details for a specific provider.
- * @param {string|number} providerId - Provider ID
- * @returns {Promise<object>} Provider details
+ * Belirli bir hosting sağlayıcısını ID'ye göre getirir.
+ * @param {string|number} providerId - Sağlayıcı ID'si
+ * @returns {Promise<object>} Sağlayıcı bilgileri
  */
 export const getProviderById = async (providerId) => {
     try {
         const response = await providersApi.get(`/providers/${providerId}`);
         return response.data.data;
     } catch (error) {
-        console.error(`Error fetching provider details for ID ${providerId}:`, error.response?.data || error.message);
+        console.error(`Sağlayıcı ID ${providerId} getirilirken hata:`, error.response?.data || error.message);
         throw error;
     }
 };
 
 /**
- * Lists plans for a specific provider.
- * @param {string|number} providerId - Provider ID
- * @returns {Promise<object[]>} List of plans for the provider
+ * Bir sağlayıcıya ait planları getirir.
+ * @param {string|number} providerId - Sağlayıcı ID'si
+ * @returns {Promise<Array>} Sağlayıcıya ait plan listesi
  */
 export const getProviderPlans = async (providerId) => {
     try {
         const response = await providersApi.get(`/providers/${providerId}/plans`);
         return response.data.data;
     } catch (error) {
-        console.error(`Error fetching plans for provider ID ${providerId}:`, error.response?.data || error.message);
+        console.error(`Sağlayıcı ID ${providerId} için planlar getirilirken hata:`, error.response?.data || error.message);
         throw error;
     }
 };
 
 /**
- * Lists reviews for a specific provider.
- * @param {string|number} providerId - Provider ID
- * @returns {Promise<object[]>} List of reviews for the provider
+ * Bir sağlayıcıya ait yorumları getirir.
+ * @param {string|number} providerId - Sağlayıcı ID'si
+ * @returns {Promise<Array>} Sağlayıcı yorumları listesi
  */
 export const getProviderReviews = async (providerId) => {
     try {
         const response = await providersApi.get(`/providers/${providerId}/reviews`);
         return response.data.data;
     } catch (error) {
-        console.error(`Error fetching reviews for provider ID ${providerId}:`, error.response?.data || error.message);
+        console.error(`Sağlayıcı ID ${providerId} için yorumlar getirilirken hata:`, error.response?.data || error.message);
         throw error;
     }
 };
 
-// For Admin operations (to be used later)
 /**
- * Creates a new provider (Admin authorization required).
- * @param {object} providerData - New provider information (name, logo_url, website_url, description, average_rating)
- * @returns {Promise<object>} Created provider
+ * Yeni bir hosting sağlayıcısı oluşturur (Admin yetkisi gereklidir).
+ * @param {object} providerData - Yeni sağlayıcı bilgileri
+ * @returns {Promise<object>} Oluşturulan sağlayıcı
  */
 export const createProvider = async (providerData) => {
     try {
         const response = await providersApi.post('/providers', providerData);
         return response.data.data;
     } catch (error) {
-        console.error('Error creating provider:', error.response?.data || error.message);
+        console.error('Sağlayıcı oluşturulurken hata:', error.response?.data || error.message);
         throw error;
     }
 };
 
 /**
- * Updates a provider (Admin authorization required).
- * @param {string|number} providerId - ID of the provider to update
- * @param {object} updatedData - Updated provider information
- * @returns {Promise<object>} Updated provider
+ * Bir hosting sağlayıcısını günceller (Admin yetkisi gereklidir).
+ * @param {string|number} providerId - Güncellenecek sağlayıcı ID'si
+ * @param {object} updatedData - Güncellenecek sağlayıcı bilgileri
+ * @returns {Promise<object>} Güncellenen sağlayıcı
  */
 export const updateProvider = async (providerId, updatedData) => {
     try {
         const response = await providersApi.put(`/providers/${providerId}`, updatedData);
         return response.data.data;
     } catch (error) {
-        console.error(`Error updating provider ID ${providerId}:`, error.response?.data || error.message);
+        console.error(`Sağlayıcı ID ${providerId} güncellenirken hata:`, error.response?.data || error.message);
         throw error;
     }
 };
 
 /**
- * Deletes a provider (Admin authorization required).
- * @param {string|number} providerId - ID of the provider to delete
+ * Bir hosting sağlayıcısını siler (Admin yetkisi gereklidir).
+ * @param {string|number} providerId - Silinecek sağlayıcı ID'si
  * @returns {Promise<void>}
  */
 export const deleteProvider = async (providerId) => {
     try {
         await providersApi.delete(`/providers/${providerId}`);
     } catch (error) {
-        console.error(`Error deleting provider ID ${providerId}:`, error.response?.data || error.message);
+        console.error(`Sağlayıcı ID ${providerId} silinirken hata:`, error.response?.data || error.message);
         throw error;
     }
 };

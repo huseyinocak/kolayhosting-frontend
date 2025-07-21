@@ -51,7 +51,9 @@ const ProvidersAdmin = () => {
     const [providers, setProviders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isDialogOpen, setIsDialogOpen] = useState(false); // Ekleme/Düzenleme diyaloğu
+    const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false); // Onay diyaloğu
+    const [providerToDeleteId, setProviderToDeleteId] = useState(null); // Silinecek sağlayıcı ID'si
     const [currentProvider, setCurrentProvider] = useState(null); // Düzenlenecek sağlayıcı
     const { toast } = useToastContext();
 
@@ -144,11 +146,18 @@ const ProvidersAdmin = () => {
         setIsDialogOpen(true);
     };
 
-    // Sağlayıcı silme
-    const handleDeleteProvider = async (providerId) => {
-        if (window.confirm('Bu sağlayıcıyı silmek istediğinizden emin misiniz?')) {
+    // Sağlayıcı silme onay diyaloğunu açma
+    const handleDeleteClick = (providerId) => {
+        setProviderToDeleteId(providerId);
+        setIsConfirmDialogOpen(true);
+    };
+
+    // Sağlayıcı silme işlemini gerçekleştirme
+    const confirmDeleteProvider = async () => {
+        setIsConfirmDialogOpen(false); // Onay diyaloğunu kapat
+        if (providerToDeleteId) {
             try {
-                await deleteProvider(providerId);
+                await deleteProvider(providerToDeleteId);
                 toast({
                     title: 'Başarılı',
                     description: 'Sağlayıcı başarıyla silindi.',
@@ -160,6 +169,8 @@ const ProvidersAdmin = () => {
                     description: `Sağlayıcı silinirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                     variant: 'destructive',
                 });
+            } finally {
+                setProviderToDeleteId(null); // Silinecek ID'yi sıfırla
             }
         }
     };
@@ -318,7 +329,7 @@ const ProvidersAdmin = () => {
                                     <Button variant="outline" size="sm" onClick={() => handleEditClick(provider)}>
                                         Düzenle
                                     </Button>
-                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteProvider(provider.id)}>
+                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(provider.id)}>
                                         Sil
                                     </Button>
                                 </TableCell>
@@ -331,6 +342,26 @@ const ProvidersAdmin = () => {
                     Henüz hiç sağlayıcı bulunmamaktadır.
                 </div>
             )}
+
+            {/* Silme Onay Diyaloğu */}
+            <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Silme Onayı</DialogTitle>
+                        <DialogDescription>
+                            Bu sağlayıcıyı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+                            İptal
+                        </Button>
+                        <Button variant="destructive" onClick={confirmDeleteProvider}>
+                            Sil
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

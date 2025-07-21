@@ -25,31 +25,38 @@ import {
     SelectValue,
 } from '../components/ui/select';
 
+import { CheckCircle2, Star } from 'lucide-react'; // İkonlar için
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 // Yorum formu için Zod şeması
 const reviewSchema = z.object({
-    title: z.string().min(3, { message: "Başlık en az 3 karakter olmalıdır." }).max(100, { message: "Başlık en fazla 100 karakter olmalıdır." }),
-    content: z.string().min(10, { message: "Yorum içeriği en az 10 karakter olmalıdır." }).max(500, { message: "Yorum içeriği en fazla 500 karakter olmalıdır." }),
-    rating: z.coerce.number().min(1, { message: "Derecelendirme 1 ile 5 arasında olmalıdır." }).max(5, { message: "Derecelendirme 1 ile 5 arasında olmalıdır." }),
+    title: z.string().min(2, { message: "Başlık en az 2 karakter olmalıdır." }),
+    content: z.string().min(10, { message: "Yorum içeriği en az 10 karakter olmalıdır." }),
+    rating: z.preprocess(
+        (val) => Number(val),
+        z.number().min(1, { message: "Derecelendirme 1 ile 5 arasında olmalıdır." }).max(5, { message: "Derecelendirme 1 ile 5 arasında olmalıdır." })
+    ),
 });
 
 const PlanDetailPage = () => {
-    const { id } = useParams();
+    const { id } = useParams(); // URL'den plan ID'sini al
+    const navigate = useNavigate();
+    const { user, isAuthenticated } = useAuth(); // Kullanıcı bilgisi ve kimlik doğrulama durumu
+    const { toast } = useToastContext();
+
     const [plan, setPlan] = useState(null);
     const [features, setFeatures] = useState([]);
-    const [reviews, setReviews] = useState([]); // Tüm yorumları tutacak
+    const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const { toast } = useToastContext();
-    const navigate = useNavigate();
-    const { user, isAuthenticated } = useAuth(); // Kullanıcı ve kimlik doğrulama durumunu al
 
-    // Yorum formu için useForm hook'u
+    // Yorum formu için react-hook-form
     const {
         register,
         handleSubmit,
-        formState: { errors },
-        reset: resetReviewForm, // Formu sıfırlamak için
-        control, // Controller için control objesini al
+        formState: { errors, isSubmitting },
+        reset,
+        control,
     } = useForm({
         resolver: zodResolver(reviewSchema),
         defaultValues: {
@@ -59,66 +66,75 @@ const PlanDetailPage = () => {
         },
     });
 
-    // Plan detaylarını, özelliklerini ve yorumlarını çekme fonksiyonu
-    const fetchPlanDetails = async () => {
-        setLoading(true);
-        try {
-            const [planData, featuresData, reviewsData] = await Promise.all([
-                getPlanById(id),
-                getPlanFeatures(id),
-                getPlanReviews(id), // Bu fonksiyon artık backend'den sadece onaylı yorumları getirmeli
-            ]);
-            setPlan(planData);
-            setFeatures(featuresData);
-            setReviews(reviewsData); // Backend'den gelen yorumları doğrudan kullanıyoruz
-        } catch (err) {
-            setError(err.message || 'Plan detayları yüklenirken bir hata oluştu.');
-            toast({
-                title: "Hata",
-                description: "Plan detayları yüklenirken bir sorun oluştu.",
-                variant: "destructive",
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
+    // Plan detaylarını, özelliklerini ve yorumlarını çek
     useEffect(() => {
+        const fetchPlanDetails = async () => {
+            setLoading(true);
+            try {
+                const planData = await getPlanById(id);
+                setPlan(planData);
+
+                const featuresData = await getPlanFeatures(id);
+                setFeatures(featuresData);
+
+                const reviewsData = await getPlanReviews(id);
+                setReviews(reviewsData);
+
+            } catch (err) {
+                console.error('Plan detayları yüklenirken hata:', err);
+                setError('Plan detayları yüklenemedi. Lütfen daha sonra tekrar deneyin.');
+                toast({
+                    title: "Hata",
+                    description: "Plan detayları yüklenirken bir sorun oluştu.",
+                    variant: "destructive",
+                });
+            } finally {
+                setLoading(false);
+            }
+        };
+
         fetchPlanDetails();
     }, [id, toast]);
 
     // Yorum gönderme işlemi
     const onSubmitReview = async (data) => {
-        if (!isAuthenticated || !user) {
+        if (!isAuthenticated) {
             toast({
-                title: "Yetkilendirme Hatası",
-                description: "Yorum yapmak için giriş yapmalısınız.",
+                title: "Giriş Yapmalısınız",
+                description: "Yorum yapmak için lütfen giriş yapın.",
                 variant: "destructive",
             });
-            navigate('/login');
             return;
         }
 
         try {
             const reviewPayload = {
-                plan_id: parseInt(id), // URL'den gelen plan ID'si
-                user_id: user.id, // Giriş yapmış kullanıcının ID'si
-                title: data.title,
-                content: data.content,
-                rating: data.rating,
-                status: 'pending', // Yorum başlangıçta beklemede olacak
+                ...data,
+                plan_id: plan.id,
+                user_id: user.id, // Authenticated kullanıcının ID'si
+                rating: Number(data.rating), // Sayıya çevir
             };
             await createReview(reviewPayload);
             toast({
                 title: "Yorum Gönderildi",
-                description: "Yorumunuz incelenmek üzere gönderildi. Onaylandıktan sonra yayınlanacaktır.",
+                description: "Yorumunuz başarıyla gönderildi ve onay bekliyor.",
             });
-            resetReviewForm(); // Formu sıfırla
-            fetchPlanDetails(); // Yorumları yeniden çek (yeni yorumun listeye eklenmesi için)
+            reset(); // Formu sıfırla
+            // Yorumu hemen listeye ekle ama durumu "pending" olarak işaretle
+            setReviews(prevReviews => [
+                {
+                    ...reviewPayload,
+                    id: Date.now(), // Geçici bir ID ver, gerçek ID backend'den gelmeli
+                    user: { name: user.name, id: user.id }, // Kullanıcı adını ekle
+                    status: 'pending', // Durumu beklemede olarak ayarla
+                },
+                ...prevReviews
+            ]);
         } catch (err) {
+            console.error('Yorum gönderilirken hata:', err);
             toast({
                 title: "Yorum Gönderme Hatası",
-                description: err.response?.data?.message || "Yorumunuz gönderilirken bir sorun oluştu.",
+                description: `Yorumunuz gönderilirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                 variant: "destructive",
             });
         }
@@ -127,23 +143,17 @@ const PlanDetailPage = () => {
     if (loading) {
         return (
             <div className="container mx-auto px-4 py-8">
-                <Skeleton className="h-16 w-3/4 mb-8" />
+                <Skeleton className="h-10 w-1/2 mb-6" />
+                <Skeleton className="h-4 w-full mb-4" />
+                <Skeleton className="h-4 w-3/4 mb-8" />
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-2 space-y-8">
-                        <Card>
-                            <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
-                            <CardContent><Skeleton className="h-48 w-full" /></CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
-                            <CardContent><Skeleton className="h-32 w-full" /></CardContent>
-                        </Card>
+                        <Skeleton className="h-64 w-full" />
+                        <Skeleton className="h-48 w-full" />
                     </div>
                     <div className="space-y-8">
-                        <Card>
-                            <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
-                            <CardContent><Skeleton className="h-24 w-full" /></CardContent>
-                        </Card>
+                        <Skeleton className="h-32 w-full" />
+                        <Skeleton className="h-64 w-full" />
                     </div>
                 </div>
             </div>
@@ -154,7 +164,9 @@ const PlanDetailPage = () => {
         return (
             <div className="container mx-auto px-4 py-8 text-center text-red-500">
                 <p>{error}</p>
-                <Button onClick={() => window.location.reload()} className="mt-4">Tekrar Dene</Button>
+                <Button onClick={() => navigate('/')} className="mt-4">
+                    Ana Sayfaya Dön
+                </Button>
             </div>
         );
     }
@@ -162,142 +174,207 @@ const PlanDetailPage = () => {
     if (!plan) {
         return (
             <div className="container mx-auto px-4 py-8 text-center text-gray-600 dark:text-gray-400">
-                <p>Plan bulunamadı.</p>
-                <Button onClick={() => navigate('/plans')} className="mt-4">Tüm Planlara Geri Dön</Button>
+                Plan bulunamadı.
             </div>
         );
     }
 
-    // Frontend'deki bu filtreleme kaldırıldı, çünkü backend'in zaten onaylı yorumları getirdiği varsayılıyor.
-    // const approvedReviews = reviews.filter(review => review.status === 'approved');
-
     return (
         <div className="container mx-auto px-4 py-8">
-            <h1 className="text-4xl font-bold text-center text-gray-900 dark:text-white mb-10">
-                {plan.name} Detayları
-            </h1>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Plan Bilgileri ve Özellikleri */}
-                <div className="lg:col-span-2 space-y-8">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-3xl">{plan.name}</CardTitle>
-                            <CardDescription className="text-lg">
-                                Sağlayıcı: {plan.provider?.name || 'Bilinmeyen'} | Kategori: {plan.category?.name || 'Bilinmeyen'}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-4">
-                                {plan.currency} {plan.price} / ay
-                            </p>
-                            {plan.renewal_price && (
-                                <p className="text-lg text-gray-500 dark:text-gray-400 line-through mb-2">
-                                    Yenileme: {plan.currency} {plan.renewal_price}
+            <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
+                {/* Plan Detayları */}
+                <div className="lg:col-span-2">
+                    <Card className="mb-8">
+                        <CardHeader className="flex flex-col md:flex-row items-center space-x-4 p-6">
+                            <Avatar className="h-24 w-24 flex-shrink-0">
+                                <AvatarImage
+                                    src={plan.provider?.logo_url || `https://placehold.co/96x96/e2e8f0/000000?text=${plan.provider?.name?.charAt(0) || 'P'}`}
+                                    alt={plan.provider?.name || 'Sağlayıcı'}
+                                    onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/96x96/e2e8f0/000000?text=${plan.provider?.name?.charAt(0) || 'P'}`; }}
+                                />
+                                <AvatarFallback>{plan.provider?.name?.charAt(0) || 'P'}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col text-center md:text-left mt-4 md:mt-0">
+                                <CardTitle className="text-3xl font-bold">{plan.name}</CardTitle>
+                                <CardDescription className="flex flex-col md:flex-row items-center mt-2">
+                                    <Badge variant="secondary" className="mr-2 mb-2 md:mb-0">
+                                        Kategori: {plan.category?.name || 'Bilinmiyor'}
+                                    </Badge>
+                                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                                        Sağlayıcı: <Link to={`/providers/${plan.provider?.id}`} className="text-blue-600 hover:underline">{plan.provider?.name || 'Bilinmiyor'}</Link>
+                                    </span>
+                                </CardDescription>
+                                <p className="text-4xl font-bold text-blue-600 dark:text-blue-400 mt-4">
+                                    {plan.price} {plan.currency}
+                                    {plan.renewal_price && plan.renewal_price !== plan.price && (
+                                        <span className="text-lg text-gray-500 dark:text-gray-400 line-through ml-2">
+                                            {plan.renewal_price} {plan.currency}
+                                        </span>
+                                    )}
+                                    {plan.discount && (
+                                        <Badge className="ml-2 bg-green-500 hover:bg-green-600 text-white">
+                                            %{plan.discount} İndirim
+                                        </Badge>
+                                    )}
                                 </p>
-                            )}
-                            {plan.discount_percentage && (
-                                <Badge className="bg-green-500 text-white text-md mb-4">
-                                    %{plan.discount_percentage} İndirim!
-                                </Badge>
-                            )}
-                            <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
-                                {plan.description || plan.features_summary || 'Açıklama bulunmuyor.'}
-                            </p>
-                            {plan.link && (
-                                <Button asChild className="w-full md:w-auto">
-                                    <a href={plan.link} target="_blank" rel="noopener noreferrer">
-                                        Planı Görüntüle
-                                    </a>
-                                </Button>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Özellikler</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {features.length > 0 ? (
-                                <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                                    {features.map((featureItem) => (
-                                        <li key={featureItem.id} className="flex items-center space-x-2">
-                                            <span className="text-blue-500 dark:text-blue-300">&#10003;</span>
-                                            <span className="text-gray-700 dark:text-gray-300">
-                                                {featureItem.feature?.name}: {featureItem.value} {featureItem.feature?.unit}
-                                            </span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="text-gray-600 dark:text-gray-400">Bu plana ait özellik bulunmamaktadır.</p>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Yorumlar ve Yorum Ekle Formu */}
-                <div className="space-y-8">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Kullanıcı Yorumları ({reviews.length})</CardTitle> {/* reviews.length kullanıldı */}
-                        </CardHeader>
-                        <CardContent>
-                            {reviews.length > 0 ? (
-                                <div className="space-y-4">
-                                    {reviews.map((review) => (
-                                        <Card key={review.id} className="p-4">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <p className="font-semibold">{review.title}</p>
-                                                <Badge variant="outline">{review.rating} / 5</Badge>
-                                            </div>
-                                            <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">{review.content}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                {review.user?.name || 'Anonim'} - {new Date(review.published_at).toLocaleDateString()}
+                                {/* Ortaklık Bağlantısı Butonu */}
+                                {
+                                    plan.affiliate_url ? (
+                                        <>
+                                        <a
+                                                href={plan.affiliate_url} // Affiliate URL varsa onu kullan, yoksa normal site URL'si
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="w-full mt-4"
+                                                onClick={() => {
+                                                    if (window.gtag) {
+                                                        window.gtag('event', 'affiliate_click', {
+                                                            plan_id: plan.id,
+                                                            plan_name: plan.name,
+                                                            provider_name: plan.provider?.name,
+                                                            affiliate_url: plan.affiliate_url,
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                <Button className="w-full md:w-auto px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:scale-105">
+                                                    Şimdi Satın Al
+                                                </Button>
+                                            </a>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                                                Bu plan için ortaklık bağlantısı bulunmaktadır. KolayHosting üzerinden satın alarak destek olabilirsiniz.
                                             </p>
-                                        </Card>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <a
+                                                href={plan.website_url} // Affiliate URL varsa onu kullan, yoksa normal site URL'si
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="w-full mt-4"
+                                                onClick={() => {
+                                                    if (window.gtag) {
+                                                        window.gtag('event', 'affiliate_click', {
+                                                            plan_id: plan.id,
+                                                            plan_name: plan.name,
+                                                            provider_name: plan.provider?.name,
+                                                            website_url: plan.website_url,
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                <Button className="w-full md:w-auto px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:scale-105">
+                                                    Web Sitesine Git
+                                                </Button>
+                                            </a>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                                                Bu plan için ortaklık bağlantısı bulunmamaktadır. Normal web sitesinden satın alabilirsiniz.
+                                            </p>
+                                        </>
+                                    )
+                                }
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <h3 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Açıklama</h3>
+                            <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-6">
+                                {plan.description || 'Bu plan hakkında detaylı açıklama bulunmamaktadır.'}
+                            </p>
+
+                            <Separator className="my-6" />
+
+                            <h3 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Özellikler</h3>
+                            {features.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
+                                    {features.map(feature => (
+                                        <div key={feature.id} className="flex items-center text-gray-700 dark:text-gray-300">
+                                            <CheckCircle2 className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
+                                            <span>{feature.name}: {feature.pivot?.value || 'Mevcut'}</span>
+                                        </div>
                                     ))}
                                 </div>
                             ) : (
-                                <p className="text-gray-600 dark:text-gray-400">Bu plan için henüz yorum bulunmamaktadır.</p>
+                                <p className="text-gray-600 dark:text-gray-400">Bu plana ait henüz özellik bulunmamaktadır.</p>
                             )}
                         </CardContent>
                     </Card>
 
+                    {/* Yorumlar Bölümü */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Yorum Ekle</CardTitle>
+                            <CardTitle className="text-2xl font-bold">Kullanıcı Yorumları ({reviews.length})</CardTitle>
                         </CardHeader>
                         <CardContent>
+                            {reviews.length > 0 ? (
+                                <div className="space-y-6">
+                                    {reviews.map(review => (
+                                        <div key={review.id} className="border-b pb-4 last:border-b-0 last:pb-0">
+                                            <div className="flex items-center mb-2">
+                                                <Avatar className="h-9 w-9 mr-3">
+                                                    <AvatarImage src={review.user?.avatar_url || `https://placehold.co/80x80/e2e8f0/000000?text=${review.user?.name?.charAt(0) || 'U'}`} alt={review.user?.name || 'Anonim'} />
+                                                    <AvatarFallback>{review.user?.name?.charAt(0) || 'U'}</AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <p className="font-semibold text-gray-800 dark:text-gray-200">{review.user?.name || 'Anonim Kullanıcı'}</p>
+                                                    <div className="flex items-center text-sm text-yellow-500">
+                                                        {[...Array(review.rating)].map((_, i) => (
+                                                            <Star key={i} className="h-4 w-4 fill-current" />
+                                                        ))}
+                                                        {[...Array(5 - review.rating)].map((_, i) => (
+                                                            <Star key={i + review.rating} className="h-4 w-4 fill-current text-gray-300" />
+                                                        ))}
+                                                        <span className="ml-2 text-gray-600 dark:text-gray-400">({review.rating}/5)</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p className="font-semibold text-gray-800 dark:text-gray-200 mb-1">{review.title}</p>
+                                            <p className="text-gray-700 dark:text-gray-300 text-sm">{review.content}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                                                {new Date(review.created_at).toLocaleDateString('tr-TR', {
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric'
+                                                })}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-center text-gray-600 dark:text-gray-400">Bu plan için henüz yorum bulunmamaktadır.</p>
+                            )}
+
+                            <Separator className="my-6" />
+
+                            <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Yorum Yapın</h3>
                             {isAuthenticated ? (
-                                <form onSubmit={handleSubmit(onSubmitReview)} className="grid gap-4">
-                                    <div className="grid gap-1.5">
-                                        <Label htmlFor="review-title">Başlık</Label>
+                                <form onSubmit={handleSubmit(onSubmitReview)} className="space-y-4">
+                                    <div className="grid w-full items-center gap-1.5">
+                                        <Label htmlFor="title">Yorum Başlığı</Label>
                                         <Input
-                                            id="review-title"
+                                            id="title"
+                                            type="text"
                                             placeholder="Yorumunuz için kısa bir başlık"
                                             {...register("title")}
                                         />
                                         {errors.title && <p className="text-red-500 text-sm">{errors.title.message}</p>}
                                     </div>
-                                    <div className="grid gap-1.5">
-                                        <Label htmlFor="review-content">Yorumunuz</Label>
+                                    <div className="grid w-full items-center gap-1.5">
+                                        <Label htmlFor="content">Yorumunuz</Label>
                                         <Textarea
-                                            id="review-content"
-                                            placeholder="Deneyiminizi detaylıca anlatın..."
+                                            id="content"
+                                            placeholder="Detaylı yorumunuzu buraya yazın..."
                                             {...register("content")}
                                         />
                                         {errors.content && <p className="text-red-500 text-sm">{errors.content.message}</p>}
                                     </div>
-                                    <div className="grid gap-1.5">
-                                        <Label htmlFor="review-rating">Derecelendirme (1-5)</Label>
+                                    <div className="grid w-full items-center gap-1.5">
+                                        <Label htmlFor="rating">Derecelendirme</Label>
                                         <Controller
                                             name="rating"
                                             control={control}
                                             render={({ field }) => (
-                                                <Select onValueChange={(value) => field.onChange(parseFloat(value))} value={field.value ? String(field.value) : ''}>
-                                                    <SelectTrigger id="review-rating">
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <SelectTrigger className="w-full">
                                                         <SelectValue placeholder="Derecelendirme Seçin" />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -310,7 +387,7 @@ const PlanDetailPage = () => {
                                         />
                                         {errors.rating && <p className="text-red-500 text-sm">{errors.rating.message}</p>}
                                     </div>
-                                    <Button type="submit" className="w-full">Yorumu Gönder</Button>
+                                    <Button type="submit" className="w-full" disabled={isSubmitting}>Yorumu Gönder</Button>
                                 </form>
                             ) : (
                                 <p className="text-center text-gray-600 dark:text-gray-400">

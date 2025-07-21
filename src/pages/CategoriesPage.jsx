@@ -1,53 +1,114 @@
-import { getAllCategories } from "@/api/categories";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useToastContext } from "../hooks/toast-utils";
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { getAllCategories } from '../api/categories'; // Kategorileri çekmek için
+import { useToastContext } from '../hooks/toast-utils'; // Toast bildirimleri için
+import { useQuery } from '@tanstack/react-query'; // React Query useQuery hook'unu içe aktar
 
+// Shadcn UI bileşenleri
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Skeleton } from '../components/ui/skeleton';
+import { Input } from '../components/ui/input'; // Arama çubuğu için
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '../components/ui/select'; // Dropdown seçimleri için
 
-export default function CategoriesPage() {
-    const { toast } = useToastContext(); // useToastContext'ten toast'ı alıyoruz
-    const [categories, setCategories] = useState([]); // Kategorileri tutmak için state
-    const [loading, setLoading] = useState(true); // Yükleme durumu
-    const [error, setError] = useState(null); // Hata durumu
+const CategoriesPage = () => {
+    const { toast } = useToastContext();
 
-    // Kategorileri yüklemek için bir fonksiyon
+    // Filtreleme ve Sıralama State'leri
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortBy, setSortBy] = useState('name_asc'); // 'name_asc', 'name_desc'
+
+    // Sayfalama State'leri
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(9); // Her sayfada 9 kategori göster - setItemsPerPage kaldırıldı
+
+    // Debounce'lu arama terimi için state
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+    // Arama terimini debounce etmek için useEffect
     useEffect(() => {
-        const fetchCategories = async () => {
-            try {
-                const response = await getAllCategories(); // API'den kategorileri al
-                setCategories(response); // Kategorileri state'e ata
-            } catch (err) {
-                console.error('Kategoriler yüklenirken hata:', err);
-                setError('Kategoriler yüklenemedi. Lütfen daha sonra tekrar deneyin.');
-                toast({
-                    title: "Hata",
-                    description: error,
-                    variant: "destructive",
-                });
-            } finally {
-                setLoading(false); // Yükleme tamamlandı
-            }
-        }
-        fetchCategories(); // Kategorileri yükle
-    }, [toast, error]); // Toast ve error değiştiğinde tekrar çalışır
+        const handler = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm);
+        }, 500); // 500ms gecikme
 
-    if (loading) {
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [searchTerm]);
+
+    // Sıralama parametrelerini ayır
+    const sortParams = useMemo(() => {
+        const [sort_by, sort_order] = sortBy.split('_');
+        return { sort_by, sort_order };
+    }, [sortBy]);
+
+    // React Query ile kategorileri çek
+    const { data, isLoading, isError, error } = useQuery({
+        queryKey: ['categories', debouncedSearchTerm, sortParams, currentPage, itemsPerPage],
+        queryFn: () => getAllCategories({
+            name: debouncedSearchTerm,
+            sort_by: sortParams.sort_by,
+            sort_order: sortParams.sort_order,
+            page: currentPage,
+            per_page: itemsPerPage,
+        }),
+        keepPreviousData: true, // Yeni veri yüklenirken eski veriyi göster
+        staleTime: 5 * 60 * 1000, // 5 dakika boyunca veriyi "stale" olarak işaretleme
+    });
+
+    // API'den gelen kategoriler ve sayfalama meta bilgileri
+    const categories = data?.data || [];
+    const totalPages = data?.meta?.last_page || 1;
+    const totalCategories = data?.meta?.total || 0;
+
+    useEffect(() => {
+        if (isError) {
+            toast({
+                title: "Hata",
+                description: error.message || "Kategoriler yüklenirken bir sorun oluştu.",
+                variant: "destructive",
+            });
+        }
+    }, [isError, error, toast]);
+
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+        setCurrentPage(1); // Arama yapıldığında sayfayı sıfırla
+    };
+
+    const handleSortChange = (value) => {
+        setSortBy(value);
+        setCurrentPage(1); // Sıralama değiştiğinde sayfayı sıfırla
+    };
+
+    const handlePrevPage = () => {
+        setCurrentPage(prev => Math.max(prev - 1, 1));
+    };
+
+    const handleNextPage = () => {
+        setCurrentPage(prev => Math.min(prev + 1, totalPages));
+    };
+
+    if (isLoading) {
         return (
             <div className="container mx-auto px-4 py-8">
-                <h1 className="text-4xl font-bold text-center mb-10">Hosting Kategorileri</h1>
+                <h1 className="text-4xl font-bold text-center text-gray-900 dark:text-white mb-10">Kategoriler Yükleniyor...</h1>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {[...Array(6)].map((_, index) => ( // 6 adet iskelet kartı göster
-                        <Card key={index} className="hover:shadow-xl transition-shadow duration-300">
+                    {[...Array(itemsPerPage)].map((_, index) => (
+                        <Card key={index} className="w-full">
                             <CardHeader>
                                 <Skeleton className="h-6 w-3/4 mb-2" />
-                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-1/2" />
                             </CardHeader>
                             <CardContent>
-                                <Skeleton className="h-16 w-full mb-4" />
-                                <Skeleton className="h-10 w-1/2" />
+                                <Skeleton className="h-4 w-full mb-2" />
+                                <Skeleton className="h-10 w-full" />
                             </CardContent>
                         </Card>
                     ))}
@@ -56,43 +117,84 @@ export default function CategoriesPage() {
         );
     }
 
-    if (error) {
-        return (
-            <div className="container mx-auto px-4 py-8 text-center text-red-500">
-                <p>{error}</p>
-                <Button onClick={() => window.location.reload()} className="mt-4">Tekrar Dene</Button>
-            </div>
-        );
-    }
-
-
     return (
         <div className="container mx-auto px-4 py-8">
-            <h1 className="text-4xl font-bold text-center text-gray-900 dark:text-white mb-10">Hosting Kategorileri</h1>
+            <h1 className="text-4xl font-bold text-center text-gray-900 dark:text-white mb-10">Tüm Hosting Kategorileri</h1>
+
+            {/* Filtreleme ve Sıralama Kontrolleri */}
+            <div className="flex flex-col md:flex-row gap-4 mb-8 items-center justify-center">
+                <Input
+                    type="text"
+                    placeholder="Kategori ara..."
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                    className="max-w-sm md:max-w-xs"
+                />
+                <Select value={sortBy} onValueChange={handleSortChange}>
+                    <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Sırala" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="name_asc">İsme Göre (A-Z)</SelectItem>
+                        <SelectItem value="name_desc">İsme Göre (Z-A)</SelectItem>
+                        <SelectItem value="created_at_desc">En Yeni</SelectItem>
+                        <SelectItem value="created_at_asc">En Eski</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+
+            {/* Kategori Kartları */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {categories.length > 0 ? (
                     categories.map((category) => (
                         <Card key={category.id} className="hover:shadow-xl transition-shadow duration-300">
                             <CardHeader>
                                 <CardTitle>{category.name}</CardTitle>
-                                <CardDescription>{category.description}</CardDescription>
+                                <CardDescription>
+                                    {category.description || 'Açıklama bulunmamaktadır.'}
+                                </CardDescription>
                             </CardHeader>
-                            <CardContent>
-                                <p className="text-gray-700 dark:text-gray-300 mb-4">
-                                    Bu kategori altında {category.plans_count || 0} adet plan bulunmaktadır.
+                            <CardContent className="flex flex-col gap-4">
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    Mevcut Plan Sayısı: {category.plans_count || 0}
                                 </p>
-                                <Button variant="link" asChild className="p-0">
-                                    <Link to={`/categories/${category.slug || category.id}/plans`}>Planları Görüntüle</Link>
+                                <Button asChild className="w-full">
+                                    <Link to={`/categories/${category.id}`}>Planları Görüntüle</Link>
                                 </Button>
                             </CardContent>
                         </Card>
                     ))
                 ) : (
                     <div className="col-span-full text-center text-gray-600 dark:text-gray-400">
-                        Henüz hiç kategori bulunmamaktadır.
+                        Filtreleme kriterlerine uygun kategori bulunmamaktadır.
                     </div>
                 )}
             </div>
+
+            {/* Sayfalama Kontrolleri */}
+            {totalCategories > 0 && ( // Sadece kategori varsa sayfalama göster
+                <div className="flex justify-center items-center space-x-4 mt-8">
+                    <Button
+                        onClick={handlePrevPage}
+                        disabled={currentPage === 1 || isLoading}
+                        variant="outline"
+                    >
+                        Önceki
+                    </Button>
+                    <span className="text-lg font-semibold">
+                        Sayfa {currentPage} / {totalPages}
+                    </span>
+                    <Button
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPages || isLoading}
+                        variant="outline"
+                    >
+                        Sonraki
+                    </Button>
+                </div>
+            )}
         </div>
     );
-}   
+};
+
+export default CategoriesPage;
