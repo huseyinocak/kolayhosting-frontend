@@ -20,7 +20,7 @@ const FeaturesPage = () => {
         const fetchFeatures = async () => {
             try {
                 const data = await getAllFeatures();
-                setFeatures(data);
+                setFeatures(data.data || []);
             } catch (err) {
                 setError(err.message || 'Özellikler yüklenirken bir hata oluştu.');
                 toast({

@@ -107,6 +107,7 @@ const ProviderDetailPage = () => {
             toast({
                 title: "Yorum Gönderildi",
                 description: "Yorumunuz başarıyla eklendi.",
+                variant: "success", // Başarılı bir gönderim bildirimi  
             });
             reset(); // Formu sıfırla
             // Yorumlar listesini yeniden çek

@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useToastContext } from '../hooks/toast-utils';
 import { ComparisonContext } from '../hooks/useComparison'; // <-- Bu satır kritik! Doğru yolu kontrol edin.
+import { useAuth } from '@/hooks/useAuth';
 
 /**
  * ComparisonProvider bileşeni, karşılaştırma için seçilen planların durumunu yönetir.
@@ -11,14 +12,18 @@ import { ComparisonContext } from '../hooks/useComparison'; // <-- Bu satır kri
 export const ComparisonProvider = ({ children }) => {
     const [plansToCompare, setPlansToCompare] = useState([]);
     const { toast } = useToastContext();
+    const { user, isAuthenticated } = useAuth(); // Kullanıcının premium durumunu almak için
 
-    const MAX_COMPARISON_LIMIT = 4;
+    // Premium kullanıcılar için daha yüksek veya sınırsız limit
+    const MAX_COMPARISON_LIMIT = isAuthenticated && user?.is_premium ? 100 : 4; // Premium ise 100, değilse 4
 
     const addPlanToCompare = useCallback((plan) => {
         if (plansToCompare.length >= MAX_COMPARISON_LIMIT) {
             toast({
                 title: "Karşılaştırma Limiti",
-                description: `En fazla ${MAX_COMPARISON_LIMIT} planı karşılaştırabilirsiniz.`,
+                description: isAuthenticated && user?.is_premium
+                    ? `En fazla ${MAX_COMPARISON_LIMIT} planı karşılaştırabilirsiniz. (Premium Limit)`
+                    : `En fazla ${MAX_COMPARISON_LIMIT} planı karşılaştırabilirsiniz. Premium'a yükselterek daha fazla plan karşılaştırabilirsiniz!`,
                 variant: "destructive",
             });
             return;
@@ -28,6 +33,7 @@ export const ComparisonProvider = ({ children }) => {
             toast({
                 title: "Plan Eklendi",
                 description: `${plan.name} karşılaştırma listesine eklendi.`,
+                variant: "success", // Başarılı bir ekleme bildirimi
             });
         } else {
             toast({
@@ -36,13 +42,14 @@ export const ComparisonProvider = ({ children }) => {
                 variant: "warning",
             });
         }
-    }, [plansToCompare, toast]);
+    }, [plansToCompare, toast, isAuthenticated, user, MAX_COMPARISON_LIMIT]);
 
     const removePlanFromCompare = useCallback((planId) => {
         setPlansToCompare(prevPlans => prevPlans.filter(p => p.id !== planId));
         toast({
             title: "Plan Kaldırıldı",
             description: "Plan karşılaştırma listesinden kaldırıldı.",
+            variant: "info", // Bilgilendirme bildirimi
         });
     }, [toast]);
 
@@ -51,6 +58,7 @@ export const ComparisonProvider = ({ children }) => {
         toast({
             title: "Liste Temizlendi",
             description: "Karşılaştırma listesi başarıyla temizlendi.",
+            variant: "info", // Bilgilendirme bildirimi
         });
     }, [toast]);
 

@@ -30,8 +30,7 @@ export const getAllProviders = async (params = {}) => {
         // Laravel paginate() kullandığı için response.data doğrudan pagination objesi olabilir
         return response.data; // data, meta, links objelerini içerecek
     } catch (error) {
-        console.error('Sağlayıcılar getirilirken hata:', error.response?.data || error.message);
-        throw error;
+        throw new Error('Sağlayıcılar getirilirken hata:', error.response?.data || error.message);
     }
 };
 
@@ -45,8 +44,7 @@ export const getProviderById = async (providerId) => {
         const response = await providersApi.get(`/providers/${providerId}`);
         return response.data.data;
     } catch (error) {
-        console.error(`Sağlayıcı ID ${providerId} getirilirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Sağlayıcı ID ${providerId} getirilirken hata:`, error.response?.data || error.message);
     }
 };
 
@@ -60,8 +58,7 @@ export const getProviderPlans = async (providerId) => {
         const response = await providersApi.get(`/providers/${providerId}/plans`);
         return response.data.data;
     } catch (error) {
-        console.error(`Sağlayıcı ID ${providerId} için planlar getirilirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Sağlayıcı ID ${providerId} için planlar getirilirken hata:`, error.response?.data || error.message);
     }
 };
 
@@ -75,8 +72,7 @@ export const getProviderReviews = async (providerId) => {
         const response = await providersApi.get(`/providers/${providerId}/reviews`);
         return response.data.data;
     } catch (error) {
-        console.error(`Sağlayıcı ID ${providerId} için yorumlar getirilirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Sağlayıcı ID ${providerId} için yorumlar getirilirken hata:`, error.response?.data || error.message);
     }
 };
 
@@ -87,11 +83,14 @@ export const getProviderReviews = async (providerId) => {
  */
 export const createProvider = async (providerData) => {
     try {
-        const response = await providersApi.post('/providers', providerData);
+        const response = await providersApi.post('/providers', providerData,{
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
         return response.data.data;
     } catch (error) {
-        console.error('Sağlayıcı oluşturulurken hata:', error.response?.data || error.message);
-        throw error;
+        throw new Error('Sağlayıcı oluşturulurken hata:', error.response?.data || error.message);
     }
 };
 
@@ -103,11 +102,15 @@ export const createProvider = async (providerData) => {
  */
 export const updateProvider = async (providerId, updatedData) => {
     try {
-        const response = await providersApi.put(`/providers/${providerId}`, updatedData);
+        updatedData.append('_method','PUT');
+        const response = await providersApi.post(`/providers/${providerId}`, updatedData,{
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
         return response.data.data;
     } catch (error) {
-        console.error(`Sağlayıcı ID ${providerId} güncellenirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Sağlayıcı ID ${providerId} güncellenirken hata:`, error.response?.data || error.message);
     }
 };
 
@@ -120,7 +123,6 @@ export const deleteProvider = async (providerId) => {
     try {
         await providersApi.delete(`/providers/${providerId}`);
     } catch (error) {
-        console.error(`Sağlayıcı ID ${providerId} silinirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Sağlayıcı ID ${providerId} silinirken hata:`, error.response?.data || error.message);
     }
 };

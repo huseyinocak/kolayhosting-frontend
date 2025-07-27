@@ -35,8 +35,7 @@ export const getAllPlans = async (params = {}) => {
         // Laravel paginate() kullandığı için response.data doğrudan pagination objesi olabilir
         return response.data; // data, meta, links objelerini içerecek
     } catch (error) {
-        console.error('Planlar getirilirken hata:', error.response?.data || error.message);
-        throw error;
+        throw new Error('Planlar getirilirken hata:', error.response?.data || error.message);
     }
 };
 
@@ -48,10 +47,10 @@ export const getAllPlans = async (params = {}) => {
 export const getPlanById = async (planId) => {
     try {
         const response = await plansApi.get(`/plans/${planId}`);
+        console.log(response.data);
         return response.data.data;
     } catch (error) {
-        console.error(`Plan ID ${planId} getirilirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Plan ID ${planId} getirilirken hata:`, error.response?.data || error.message);
     }
 };
 
@@ -63,10 +62,9 @@ export const getPlanById = async (planId) => {
 export const getPlanFeatures = async (planId) => {
     try {
         const response = await plansApi.get(`/plans/${planId}/features`);
-        return response.data.data;
+        return response.data;
     } catch (error) {
-        console.error(`Plan ID ${planId} için özellikler getirilirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Plan ID ${planId} için özellikler getirilirken hata:`, error.response?.data || error.message);
     }
 };
 
@@ -78,10 +76,10 @@ export const getPlanFeatures = async (planId) => {
 export const getPlanReviews = async (planId) => {
     try {
         const response = await plansApi.get(`/plans/${planId}/reviews`);
-        return response.data.data;
+        console.log(response.data);
+        return response.data;
     } catch (error) {
-        console.error(`Plan ID ${planId} için yorumlar getirilirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Plan ID ${planId} için yorumlar getirilirken hata:`, error.response?.data || error.message);
     }
 };
 
@@ -95,8 +93,7 @@ export const createPlan = async (planData) => {
         const response = await plansApi.post('/plans', planData);
         return response.data.data;
     } catch (error) {
-        console.error('Plan oluşturulurken hata:', error.response?.data || error.message);
-        throw error;
+        throw new Error('Plan oluşturulurken hata:', error.response?.data || error.message);
     }
 };
 
@@ -111,8 +108,7 @@ export const updatePlan = async (planId, updatedData) => {
         const response = await plansApi.put(`/plans/${planId}`, updatedData);
         return response.data.data;
     } catch (error) {
-        console.error(`Plan ID ${planId} güncellenirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Plan ID ${planId} güncellenirken hata:`, error.response?.data || error.message);
     }
 };
 
@@ -125,7 +121,22 @@ export const deletePlan = async (planId) => {
     try {
         await plansApi.delete(`/plans/${planId}`);
     } catch (error) {
-        console.error(`Plan ID ${planId} silinirken hata:`, error.response?.data || error.message);
+        throw new Error(`Plan ID ${planId} silinirken hata:`, error.response?.data || error.message);
+    }
+};
+
+/**
+ * Bir planın özelliklerini senkronize eder (ekler/günceller/kaldırır).
+ * @param {number} planId - Özellikleri senkronize edilecek planın ID'si
+ * @param {Array<object>} features - Senkronize edilecek özelliklerin dizisi (örn: [{ feature_id: 1, value: '10 GB' }])
+ * @returns {Promise<object>} Senkronizasyon yanıtı
+ */
+export const syncFeatures = async (planId, features) => {
+    try {
+        const response = await plansApi.put(`/plans/${planId}/features/sync`, { features });
+        return response.data;
+    } catch (error) {
+        console.error(`Plan (ID: ${planId}) özellikleri senkronize edilirken hata oluştu:`, error.response?.data || error.message);
         throw error;
     }
 };

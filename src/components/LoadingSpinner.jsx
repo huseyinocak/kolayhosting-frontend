@@ -1,5 +1,4 @@
 import React from 'react';
-import KolayhostingLogo from '../assets/Kolayhosting_logosu.png'; // Logoyu import edin
 import Logo from '../assets/logo.webp'; // Logoyu import edin
 
 /**

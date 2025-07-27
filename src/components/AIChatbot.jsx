@@ -131,8 +131,8 @@ const AIChatbot = ({ onClose }) => {
             setMessages((prevMessages) => [...prevMessages, aiMessage]);
 
         } catch (error) {
-            console.error('Yapay zeka yanıtı alınırken hata:', error);
             setMessages((prevMessages) => [...prevMessages, { sender: 'bot', type: 'text', text: 'Üzgünüm, şu anda yanıt veremiyorum. Lütfen daha sonra tekrar deneyin.' }]);
+            throw new Error('Yapay zeka yanıtı alınırken hata:', error);
         } finally {
             setIsTyping(false);
         }

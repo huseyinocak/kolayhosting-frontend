@@ -31,8 +31,7 @@ export const getAllCategories = async (params = {}) => {
         // Laravel paginate() kullandığı için response.data doğrudan pagination objesi olabilir
         return response.data; // data, meta, links objelerini içerecek
     } catch (error) {
-        console.error('Kategoriler getirilirken hata:', error.response?.data || error.message);
-        throw error;
+        throw new Error('Kategoriler getirilirken hata:', error.response?.data || error.message);
     }
 };
 
@@ -44,10 +43,10 @@ export const getAllCategories = async (params = {}) => {
 export const getPlansByCategory = async (categoryId) => {
     try {
         const response = await categoriesApi.get(`/categories/${categoryId}/plans`);
-        return response.data.data;
+        console.log('Plans by category response:', response.data);
+        return response.data.data; // data, meta, links objelerini içerecek
     } catch (error) {
-        console.error(`Kategori ID ${categoryId} için planlar getirilirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Kategori ID ${categoryId} için planlar getirilirken hata:`, error.response?.data || error.message);
     }
 };
 
@@ -61,8 +60,7 @@ export const createCategory = async (categoryData) => {
         const response = await categoriesApi.post('/categories', categoryData);
         return response.data.data;
     } catch (error) {
-        console.error('Kategori oluşturulurken hata:', error.response?.data || error.message);
-        throw error;
+        throw new Error('Kategori oluşturulurken hata:', error.response?.data || error.message);
     }
 };
 
@@ -77,8 +75,7 @@ export const updateCategory = async (categoryId, updatedData) => {
         const response = await categoriesApi.put(`/categories/${categoryId}`, updatedData);
         return response.data.data;
     } catch (error) {
-        console.error(`Kategori ID ${categoryId} güncellenirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Kategori ID ${categoryId} güncellenirken hata:`, error.response?.data || error.message);
     }
 };
 
@@ -91,7 +88,6 @@ export const deleteCategory = async (categoryId) => {
     try {
         await categoriesApi.delete(`/categories/${categoryId}`);
     } catch (error) {
-        console.error(`Kategori ID ${categoryId} silinirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Kategori ID ${categoryId} silinirken hata:`, error.response?.data || error.message);
     }
 };

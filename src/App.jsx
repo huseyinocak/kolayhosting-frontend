@@ -7,7 +7,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import LoadingSpinner from './components/LoadingSpinner';
 import ProfilePage from './pages/ProfilePage';
-import { useAuth } from './hooks/useAuth';
 import OnboardingModal from './components/OnboardingModal';
 
 
@@ -33,10 +32,13 @@ const CategoryPlansPage = lazy(() => import('./pages/CategoryPlansPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsOfServicePage = lazy(() => import('./pages/TermsOfServicePage'));
 const CookiePolicyPage = lazy(() => import('./pages/CookiePolicyPage'));
+const UsersAdmin = lazy(() => import('./pages/admin/UsersAdmin')); // Yeni UsersAdmin bileşeni
+const LoginSuccessPage = lazy(() => import('./pages/LoginSuccessPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage')); 
 
 
 function App() {
-  const { showOnboarding, markUserOnboarded, user } = useAuth();
   return (
     <Router>
       <Suspense fallback={<LoadingSpinner />}> {/* Yükleme göstergesi */}
@@ -57,6 +59,9 @@ function App() {
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
             <Route path="/terms-of-service" element={<TermsOfServicePage />} />
             <Route path="/cookie-policy" element={<CookiePolicyPage />} />
+            <Route path="/login-success" element={<LoginSuccessPage />} />            
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             {/* Korunan Rotlar - Sadece giriş yapmış kullanıcılar erişebilir */}
             <Route element={<ProtectedRoute />}>
               <Route path="/profile" element={<ProfilePage />} /> {/* Yeni Profil Sayfası Rotası */}
@@ -66,6 +71,7 @@ function App() {
             {/* Yönetim Paneli Rotları (Sadece Admin için) */}
             <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/users" element={<UsersAdmin />} /> {/* Yeni Admin Kullanıcı Yönetimi Rotası */}
               <Route path="/admin/categories" element={<CategoriesAdmin />} />
               <Route path="/admin/providers" element={<ProvidersAdmin />} />
               <Route path="/admin/plans" element={<PlansAdmin />} />
@@ -78,13 +84,6 @@ function App() {
           </Route>
         </Routes>
       </Suspense>
-      {showOnboarding && user && (
-        <OnboardingModal
-          isOpen={showOnboarding}
-          onClose={markUserOnboarded} // Modalı kapatınca onboarding durumunu günceller
-          userName={user.name || 'Misafir'}
-        />
-      )}
       <Toaster />
     </Router>
   );

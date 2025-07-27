@@ -8,12 +8,14 @@ import { Badge } from '@/components/ui/badge'; // For rating Badge
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // For provider logos
 import { useToastContext } from '../hooks/toast-utils'; // For toast notifications
 import { CheckCircle2, Star } from 'lucide-react'; // Yeni ikonlar için
+import { useTranslation } from 'react-i18next';
 
 export default function HomePage() {
     const [topProviders, setTopProviders] = useState([]);
     const [loadingProviders, setLoadingProviders] = useState(true);
     const [errorProviders, setErrorProviders] = useState(null);
     const { toast } = useToastContext();
+    const { t } = useTranslation(); // Eğer i18n kullanıyorsanız
 
     // Function to fetch top providers
     const fetchTopProviders = async () => {
@@ -29,10 +31,10 @@ export default function HomePage() {
             // API'den gelen verinin 'data' özelliğini kullanıyoruz
             setTopProviders(response.data || []);
         } catch (err) {
-            setErrorProviders(err.message || 'En iyi sağlayıcılar yüklenirken bir hata oluştu.');
+            setErrorProviders(err.message || t('error_loading_providers'));
             toast({
                 title: "Hata",
-                description: "En iyi sağlayıcılar yüklenirken bir sorun oluştu.",
+                description: t('error_loading_providers_description'),
                 variant: "destructive",
             });
         } finally {
@@ -49,17 +51,17 @@ export default function HomePage() {
             {/* Hero Section */}
             <section className="text-center mb-16 max-w-4xl">
                 <h1 className="text-5xl font-extrabold text-gray-900 dark:text-white mb-6 leading-tight">
-                    En İyi Hosting Planlarını Karşılaştırın
+                    {t('homepage_title')}
                 </h1>
                 <p className="text-xl text-gray-700 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
-                    İhtiyaçlarınıza en uygun hosting çözümünü bulmak için binlerce plan ve sağlayıcıyı kolayca karşılaştırın.
+                    {t('homepage_description')} {/* Çeviri kullan */}
                 </p>
                 <div className="flex justify-center space-x-4">
                     <Button size="lg" asChild className="transition-all duration-300 hover:scale-105">
-                        <Link to="/plans">Planları Keşfet</Link>
+                        <Link to="/plans">{t('explore_plans')}</Link>
                     </Button>
                     <Button size="lg" variant="outline" asChild className="transition-all duration-300 hover:scale-105">
-                        <Link to="/compare">Karşılaştırmaya Başla</Link>
+                        <Link to="/compare">{t('start_comparison')}</Link>
                     </Button>
                 </div>
             </section>
@@ -67,7 +69,7 @@ export default function HomePage() {
             {/* Top Providers Section */}
             <section className="w-full max-w-6xl mb-16">
                 <h2 className="text-4xl font-bold text-center text-gray-900 dark:text-white mb-10">
-                    En Popüler Hosting Sağlayıcıları
+                    {t('top_providers_title')} {/* Çeviri kullan */}
                 </h2>
                 {loadingProviders ? (
                     <div className="flex flex-col gap-6"> {/* Her satırda bir kart için flex-col */}
@@ -86,7 +88,7 @@ export default function HomePage() {
                     </div>
                 ) : errorProviders ? (
                     <div className="text-center text-red-500 text-lg">
-                        Sağlayıcılar yüklenirken bir hata oluştu: {errorProviders}
+                        {t('error_loading_providers_message', { error: errorProviders })} {/* Çeviri kullan */}
                     </div>
                 ) : topProviders.length > 0 ? (
                     <div className="flex flex-col gap-6"> {/* Her satırda bir kart için flex-col */}
@@ -124,7 +126,7 @@ export default function HomePage() {
                                         </span>
                                     </div>
                                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                        {provider.review_count || 0} yorum
+                                        {t('review_count', { count: provider.review_count || 0 })} {/* Çeviri kullan */}
                                     </p>
                                 </div>
 
@@ -132,21 +134,21 @@ export default function HomePage() {
                                 <div className="flex-1 text-center md:text-left mb-4 md:mb-0">
                                     <CardTitle className="text-2xl mb-2">{provider.name}</CardTitle>
                                     <CardDescription className="text-base text-gray-700 dark:text-gray-300 mb-4">
-                                        {provider.summary || provider.description || 'Bu sağlayıcı için kısa bir açıklama bulunmamaktadır.'}
+                                        {provider.summary || provider.description || t('no_description_available', { type: 'provider' })} {/* Çeviri kullan */}
                                     </CardDescription>
                                     {/* Ek özellikler (örnek) */}
                                     <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-2">
                                         <li className="flex items-center justify-center md:justify-start">
                                             <CheckCircle2 className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                                            Ücretsiz alan adı, e-posta ve SSL dahildir.
+                                           {t('feature_value_free_domain_registration')}, {t('feature_value_email')} {t('and')} SSL {t('feature_value_included')}. {/* Çeviri kullan */}
                                         </li>
                                         <li className="flex items-center justify-center md:justify-start">
                                             <CheckCircle2 className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                                            7/24 Müşteri Desteği
+                                            {t('feature_value_24_7_support')} {/* Çeviri kullan */}
                                         </li>
                                         <li className="flex items-center justify-center md:justify-start">
                                             <CheckCircle2 className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                                            Ek indirimler mevcut.
+                                            {t('additional_discount_available')} {/* Yeni çeviri anahtarı */}
                                         </li>
                                     </ul>
                                 </div>
@@ -154,7 +156,7 @@ export default function HomePage() {
                                 {/* Buton */}
                                 <div className="mt-4 md:mt-0 md:ml-6 flex-shrink-0">
                                     <Button size="lg" asChild className="w-full md:w-auto px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
-                                        <Link to={`/providers/${provider.id}`}>Siteyi Ziyaret Et</Link>
+                                        <Link to={`/providers/${provider.id}`}>{t('visit_website')}</Link>
                                     </Button>
                                 </div>
                             </Card>
@@ -162,7 +164,7 @@ export default function HomePage() {
                     </div>
                 ) : (
                     <div className="text-center text-gray-600 dark:text-gray-400">
-                        Henüz hiç sağlayıcı bulunmamaktadır.
+                        {t('no_providers_found')} {/* Çeviri kullan */}
                     </div>
                 )}
             </section>
@@ -170,25 +172,25 @@ export default function HomePage() {
             {/* How It Works Section (Placeholder) */}
             <section className="w-full max-w-6xl">
                 <h2 className="text-4xl font-bold text-center text-gray-900 dark:text-white mb-10">
-                    Nasıl Çalışır?
+                    {t('how_it_works_title')} {/* Çeviri kullan */}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
                     <Card className="p-6">
-                        <CardTitle className="mb-4">1. Araştırın</CardTitle>
+                        <CardTitle className="mb-4">{t('step_1_title')}</CardTitle> {/* Çeviri kullan */}
                         <CardDescription>
-                            İhtiyaçlarınıza göre hosting kategorilerini ve sağlayıcıları keşfedin.
+                            {t('step_1_description')} {/* Çeviri kullan */}
                         </CardDescription>
                     </Card>
                     <Card className="p-6">
-                        <CardTitle className="mb-4">2. Karşılaştırın</CardTitle>
+                        <CardTitle className="mb-4">{t('step_2_title')}</CardTitle> {/* Çeviri kullan */}
                         <CardDescription>
-                            Farklı planların özelliklerini, fiyatlarını ve yorumlarını karşılaştırın.
+                             {t('step_2_description')} {/* Çeviri kullan */}
                         </CardDescription>
                     </Card>
                     <Card className="p-6">
-                        <CardTitle className="mb-4">3. Seçiminizi Yapın</CardTitle>
+                        <CardTitle className="mb-4">{t('step_3_title')}</CardTitle> {/* Çeviri kullan */}
                         <CardDescription>
-                            En iyi kararı verin ve ideal hosting planınızı seçin.
+                             {t('step_3_description')} {/* Çeviri kullan */}
                         </CardDescription>
                     </Card>
                 </div>

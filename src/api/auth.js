@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { setupAuthInterceptor } from '../utils/axiosInterceptors';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
@@ -10,19 +11,7 @@ const authApi = axios.create({
     },
 });
 
-// Axios interceptor: Her istekten önce Authorization başlığını ekler
-authApi.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('access_token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
-    }
-);
+setupAuthInterceptor(authApi); // Interceptor'ları uygula
 
 /**
  * Token'ı yenilemek için API çağrısı yapar.
@@ -39,61 +28,31 @@ export const refreshToken = async () => {
             refresh_token: refreshToken,
         });
 
-        // Backend'den dönen yanıta göre destructuring yapısını düzelt
-        // Eğer refresh_token da doğrudan response.data içindeyse:
-        const { access_token, refresh_token: newRefreshToken } = response.data; // response.data.data yerine response.data
+        const { access_token, refresh_token: newRefreshToken } = response.data;
         localStorage.setItem('access_token', access_token);
-        localStorage.setItem('refresh_token', newRefreshToken); // Yeni refresh token'ı kaydet
+        localStorage.setItem('refresh_token', newRefreshToken);
 
         return { access_token, refresh_token: newRefreshToken };
     } catch (error) {
-        console.error('Token yenileme hatası:', error.response?.data || error.message);
-        // Yenileme tokenı geçersizse veya başka bir hata olursa oturumu kapat
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
-        // Kullanıcıyı login sayfasına yönlendirme veya global logout tetikleme
-        window.location.href = '/login'; // Örnek olarak doğrudan yönlendirme
-        throw error;
+        window.location.href = '/login';
+        throw new Error('Token yenileme hatası:', error.response?.data || error.message);
     }
 };
-
-// Axios interceptor: Yanıtlarda token yenileme mantığını yönetir
-authApi.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        const originalRequest = error.config;
-
-        // Eğer hata 401 (Unauthorized) ise ve daha önce denenmediyse
-        // ve istek refresh token endpoint'ine yapılmıyorsa
-        if (error.response.status === 401 && !originalRequest._retry && originalRequest.url !== `${API_BASE_URL}/auth/refresh-token`) { // Tam URL kontrolü
-            originalRequest._retry = true; // Tekrar denendiğini işaretle
-
-            try {
-                const { access_token: newAccessToken } = await refreshToken(); // Token'ı yenile
-                originalRequest.headers.Authorization = `Bearer ${newAccessToken}`; // Yeni token ile orijinal isteği tekrar dene
-                return authApi(originalRequest); // Orijinal isteği tekrar gönder
-            } catch (refreshError) {
-                // Token yenileme başarısız olursa, hata zaten refreshToken fonksiyonu içinde ele alınıyor
-                return Promise.reject(refreshError);
-            }
-        }
-        return Promise.reject(error);
-    }
-);
 
 /**
  * Kullanıcı girişi yapar.
  * @param {object} credentials - Kullanıcı kimlik bilgileri (email, password)
- * @returns {Promise<object>} Kullanıcı verileri ve token'lar
+ * @returns {Promise<object>} Laravel API'sinden dönen tüm yanıt verisi (access_token, refresh_token, user)
  */
 export const loginUser = async (credentials) => {
     try {
         const response = await authApi.post('/login', credentials); // Endpoint '/login' olarak bırakıldı
-        // Postman çıktısına göre destructuring yapısını düzelt
-        const { access_token, user } = response.data; // refresh_token Postman çıktısında yok, bu yüzden kaldırıldı
+        const { access_token, user, refresh_token } = response.data;
         localStorage.setItem('access_token', access_token);
-        // localStorage.setItem('refresh_token', refresh_token); // refresh_token olmadığı için yorum satırı yapıldı veya kaldırıldı
-        return user; // Sadece kullanıcı objesini döndür
+        localStorage.setItem('refresh_token', refresh_token);
+        return { user, access_token, refresh_token };
     } catch (error) {
         console.error('Giriş hatası:', error.response?.data || error.message);
         throw error;
@@ -103,16 +62,18 @@ export const loginUser = async (credentials) => {
 /**
  * Yeni kullanıcı kaydı yapar.
  * @param {object} userData - Kullanıcı kayıt bilgileri (name, email, password, password_confirmation)
- * @returns {Promise<object>} Kaydedilen kullanıcı bilgileri
+ * @returns {Promise<object>} Laravel API'sinden dönen tüm yanıt verisi (access_token, refresh_token, user)
  */
 export const registerUser = async (userData) => {
     try {
-        const response = await authApi.post('/register', userData); // Endpoint '/register' olarak güncellendi
+        const { name, email, password, password_confirmation } = userData;
+        const response = await authApi.post('/register', { name, email, password, password_confirmation }); // Endpoint '/register' olarak güncellendi
+        
         // Kayıt sonrası dönen yanıta göre tokenları kaydet
         const { access_token, refresh_token, user } = response.data; // Eğer backend bu alanları döndürüyorsa
         localStorage.setItem('access_token', access_token);
         localStorage.setItem('refresh_token', refresh_token);
-        return user; // Kullanıcı objesini döndür
+        return { user, access_token, refresh_token };
     } catch (error) {
         console.error('Kayıt hatası:', error.response?.data || error.message);
         throw error;
@@ -125,29 +86,27 @@ export const registerUser = async (userData) => {
  */
 export const logoutUser = async () => {
     try {
-        await authApi.post('/logout'); // Endpoint '/logout' olarak güncellendi
+        await authApi.post('/logout');
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
     } catch (error) {
-        console.error('Çıkış hatası:', error.response?.data || error.message);
-        // Hata olsa bile token'ları temizle
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        throw error;
+        throw new Error('Çıkış yapılırken hata:', error.response?.data || error.message);
     }
 };
 
 /**
  * Mevcut kullanıcının bilgilerini getirir.
- * @returns {Promise<object>} Kullanıcı bilgileri
+ * @returns {Promise<object>} Kullanıcı bilgileri (Laravel API'sinden doğrudan dönen user objesi)
  */
 export const getUser = async () => {
     try {
-        const response = await authApi.get('/user'); // Endpoint '/user' olarak güncellendi
-        return response.data; // Eğer backend user bilgisini data altında döndürüyorsa bu doğru
+        const response = await authApi.get('/user');
+        // Laravel'in '/user' endpoint'i doğrudan user objesini döndürüyorsa:
+        return response.data;
+        // Eğer 'data' anahtarı altında dönüyorsa:
+        // return response.data.data;
     } catch (error) {
-        console.error('Kullanıcı bilgileri getirilirken hata:', error.response?.data || error.message);
-        throw error;
+        throw new Error('Kullanıcı bilgileri getirilirken hata:', error.response?.data || error.message);
     }
 };
 
@@ -158,11 +117,10 @@ export const getUser = async () => {
  */
 export const forgotPassword = async (email) => {
     try {
-        const response = await authApi.post('/forgot-password', { email }); // Endpoint '/forgot-password' olarak güncellendi
+        const response = await authApi.post('/forgot-password', { email });
         return response.data;
     } catch (error) {
-        console.error('Şifre sıfırlama talebi hatası:', error.response?.data || error.message);
-        throw error;
+        throw new Error('Şifre sıfırlama talebi hatası:', error.response?.data || error.message);
     }
 };
 
@@ -176,9 +134,21 @@ export const resetPassword = async (data) => {
         const response = await authApi.post('/auth/reset-password', data);
         return response.data;
     } catch (error) {
-        console.error('Şifre sıfırlama hatası:', error.response?.data || error.message);
-        throw error;
+        throw new Error('Şifre sıfırlama hatası:', error.response?.data || error.message);
     }
 };
 
-export default authApi; // authApi instance'ını da dışa aktar
+/**
+ * E-posta doğrulama bağlantısını yeniden gönderir.
+ * @returns {Promise<object>} Yanıt mesajı
+ */
+export const resendVerificationLink = async () => {
+    try {
+        const response = await authApi.post('/email/verify/resend');
+        return response.data;
+    } catch (error) {
+        throw new Error('Doğrulama bağlantısı gönderilirken hata:', error.response?.data?.message || error.message);
+    }
+};
+
+export default authApi;

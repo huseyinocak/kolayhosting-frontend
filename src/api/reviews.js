@@ -18,13 +18,12 @@ setupAuthInterceptor(reviewsApi);
  * Tüm yorumları getirir (Admin yetkisi gereklidir).
  * @returns {Promise<Array>} Yorum listesi
  */
-export const getAllReviews = async () => {
+export const getAllReviews = async (params = {}) => {
     try {
-        const response = await reviewsApi.get('/reviews');
-        return response.data.data;
+        const response = await reviewsApi.get('/reviews', { params });
+        return response.data;
     } catch (error) {
-        console.error('Yorumlar getirilirken hata:', error.response?.data || error.message);
-        throw error;
+        throw new Error('Yorumlar getirilirken hata:', error.response?.data || error.message);
     }
 };
 
@@ -38,8 +37,8 @@ export const createReview = async (reviewData) => {
         const response = await reviewsApi.post('/reviews', reviewData);
         return response.data.data;
     } catch (error) {
-        console.error('Yorum oluşturulurken hata:', error.response?.data || error.message);
-        throw error;
+        throw new Error('Yorum oluşturulurken hata:', error.response?.data || error.message);
+        
     }
 };
 
@@ -54,9 +53,8 @@ export const updateReview = async (reviewId, updatedData) => {
         const response = await reviewsApi.put(`/reviews/${reviewId}`, updatedData);
         return response.data.data;
     } catch (error) {
-        console.error(`Yorum ID ${reviewId} güncellenirken hata:`, error.response?.data || error.message);
-        throw error;
-    }
+        throw new Error(`Yorum ID ${reviewId} güncellenirken hata:`, error.response?.data || error.message);
+            }
 };
 
 /**
@@ -68,7 +66,21 @@ export const deleteReview = async (reviewId) => {
     try {
         await reviewsApi.delete(`/reviews/${reviewId}`);
     } catch (error) {
-        console.error(`Yorum ID ${reviewId} silinirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Yorum ID ${reviewId} silinirken hata:`, error.response?.data || error.message);  
+    }
+};
+
+/**
+ * Bir yorumun durumunu günceller (Admin yetkisi gereklidir).
+ * @param {string|number} reviewId - Durumu güncellenecek yorum ID'si
+ * @param {string} status - Yeni durum ('pending', 'approved', 'rejected')
+ * @returns {Promise<object>} Güncellenen yorum
+ */
+export const changeReviewStatus = async (reviewId, status) => {
+    try {
+        const response = await reviewsApi.put(`/reviews/${reviewId}/status`, { status });
+        return response.data;
+    } catch (error) {
+        throw new Error(`Yorum ID ${reviewId} durumu güncellenirken hata:`, error.response?.data || error.message);
     }
 };

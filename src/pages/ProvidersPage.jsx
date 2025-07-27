@@ -18,6 +18,7 @@ import {
 } from '../components/ui/select'; // Dropdown seçimleri için
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Sağlayıcı logoları için Avatar
 import { Badge } from '@/components/ui/badge'; // Derecelendirme için Badge
+import AnimatedListItem from '@/components/AnimatedListItem';
 
 const ProvidersPage = () => {
     const { toast } = useToastContext();
@@ -150,52 +151,55 @@ const ProvidersPage = () => {
             {/* Sağlayıcı Kartları */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {providers.length > 0 ? (
-                    providers.map((provider) => (
-                        <Card key={provider.id} className="hover:shadow-xl transition-shadow duration-300">
-                            <CardHeader className="flex flex-row items-center space-x-4 p-6">
-                                <Avatar className="h-16 w-16">
-                                    <AvatarImage
-                                        src={provider.logo_url || `https://placehold.co/80x80/e2e8f0/000000?text=${provider.name.charAt(0)}`}
-                                        alt={provider.name}
-                                        onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/80x80/e2e8f0/000000?text=${provider.name.charAt(0)}`; }}
-                                    />
-                                    <AvatarFallback>{provider.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex flex-col">
-                                    <CardTitle className="text-xl">{provider.name}</CardTitle>
-                                    <CardDescription className="flex items-center mt-1">
-                                        <Badge variant="secondary" className="mr-2">
-                                            Ort. Derecelendirme: {
-                                                // average_rating'i sayıya dönüştür ve geçerli bir sayı ise toFixed kullan
-                                                // Aksi takdirde '0.0' göster
-                                                !isNaN(parseFloat(provider.average_rating))
-                                                    ? parseFloat(provider.average_rating).toFixed(1)
-                                                    : '0.0'
-                                            } / 5
-                                        </Badge>
-                                        {/* Yıldız ikonları eklenebilir */}
-                                    </CardDescription>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="flex flex-col gap-4">
-                                <p className="text-gray-700 dark:text-gray-300 text-sm">
-                                    {provider.description || 'Bu sağlayıcı için açıklama bulunmamaktadır.'}
-                                </p>
-                                {provider.website_url && (
-                                    <a
-                                        href={provider.website_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:underline text-sm"
-                                    >
-                                        Web Sitesini Ziyaret Et
-                                    </a>
-                                )}
-                                <Button asChild className="w-full">
-                                    <Link to={`/providers/${provider.id}`}>Detayları Görüntüle</Link>
-                                </Button>
-                            </CardContent>
-                        </Card>
+                    providers.map((provider, index) => (
+                        <AnimatedListItem key={provider.id} delay={index * 100}>
+                            <Card key={provider.id} className="hover:shadow-xl transition-shadow duration-300">
+                                <CardHeader className="flex flex-row items-center space-x-4 p-6">
+                                    <Avatar className="h-16 w-16">
+                                        <AvatarImage
+                                            src={provider.logo_url || `https://placehold.co/80x80/e2e8f0/000000?text=${provider.name.charAt(0)}`}
+                                            alt={provider.name}
+                                            onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/80x80/e2e8f0/000000?text=${provider.name.charAt(0)}`; }}
+                                        />
+                                        <AvatarFallback>{provider.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex flex-col">
+                                        <CardTitle className="text-xl">{provider.name}</CardTitle>
+                                        <CardDescription className="flex items-center mt-1">
+                                            <Badge variant="secondary" className="mr-2">
+                                                Ort. Derecelendirme: {
+                                                    // average_rating'i sayıya dönüştür ve geçerli bir sayı ise toFixed kullan
+                                                    // Aksi takdirde '0.0' göster
+                                                    !isNaN(parseFloat(provider.average_rating))
+                                                        ? parseFloat(provider.average_rating).toFixed(1)
+                                                        : '0.0'
+                                                } / 5
+                                            </Badge>
+                                            {/* Yıldız ikonları eklenebilir */}
+                                        </CardDescription>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="flex flex-col gap-4">
+                                    <p className="text-gray-700 dark:text-gray-300 text-sm">
+                                        {provider.description || 'Bu sağlayıcı için açıklama bulunmamaktadır.'}
+                                    </p>
+                                    {provider.website_url && (
+                                        <a
+                                            href={provider.website_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline text-sm"
+                                        >
+                                            Web Sitesini Ziyaret Et
+                                        </a>
+                                    )}
+                                    <Button asChild className="w-full">
+                                        <Link to={`/providers/${provider.id}`}>Detayları Görüntüle</Link>
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        </AnimatedListItem>
+
                     ))
                 ) : (
                     <div className="col-span-full text-center text-gray-600 dark:text-gray-400">

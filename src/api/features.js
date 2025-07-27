@@ -18,13 +18,12 @@ setupAuthInterceptor(featuresApi);
  * Tüm hosting özelliklerini getirir.
  * @returns {Promise<Array>} Özellik listesi
  */
-export const getAllFeatures = async () => {
+export const getAllFeatures = async (params = {}) => {
     try {
-        const response = await featuresApi.get('/features');
-        return response.data.data;
+        const response = await featuresApi.get('/features',{ params });
+        return response.data;
     } catch (error) {
-        console.error('Özellikler getirilirken hata:', error.response?.data || error.message);
-        throw error;
+        throw new Error('Özellikler getirilirken hata:', error.response?.data || error.message);
     }
 };
 
@@ -38,8 +37,7 @@ export const createFeature = async (featureData) => {
         const response = await featuresApi.post('/features', featureData);
         return response.data.data;
     } catch (error) {
-        console.error('Özellik oluşturulurken hata:', error.response?.data || error.message);
-        throw error;
+        throw new Error('Özellik oluşturulurken hata:', error.response?.data || error.message);
     }
 };
 
@@ -54,8 +52,7 @@ export const updateFeature = async (featureId, updatedData) => {
         const response = await featuresApi.put(`/features/${featureId}`, updatedData);
         return response.data.data;
     } catch (error) {
-        console.error(`Özellik ID ${featureId} güncellenirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Özellik ID ${featureId} güncellenirken hata:`, error.response?.data || error.message);
     }
 };
 
@@ -68,7 +65,6 @@ export const deleteFeature = async (featureId) => {
     try {
         await featuresApi.delete(`/features/${featureId}`);
     } catch (error) {
-        console.error(`Özellik ID ${featureId} silinirken hata:`, error.response?.data || error.message);
-        throw error;
+        throw new Error(`Özellik ID ${featureId} silinirken hata:`, error.response?.data || error.message);
     }
 };

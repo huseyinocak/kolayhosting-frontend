@@ -39,6 +39,7 @@ const ComparisonPage = () => {
         toast({
             title: "Plan Kaldırıldı",
             description: `${planName} karşılaştırma listesinden kaldırıldı.`,
+            variant: "info", // Bilgilendirme bildirimi
         });
     };
 

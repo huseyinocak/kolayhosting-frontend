@@ -16,6 +16,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '../components/ui/select'; // Dropdown seçimleri için
+import AnimatedListItem from '@/components/AnimatedListItem';
 
 const CategoriesPage = () => {
     const { toast } = useToastContext();
@@ -146,23 +147,26 @@ const CategoriesPage = () => {
             {/* Kategori Kartları */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {categories.length > 0 ? (
-                    categories.map((category) => (
-                        <Card key={category.id} className="hover:shadow-xl transition-shadow duration-300">
-                            <CardHeader>
-                                <CardTitle>{category.name}</CardTitle>
-                                <CardDescription>
-                                    {category.description || 'Açıklama bulunmamaktadır.'}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex flex-col gap-4">
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    Mevcut Plan Sayısı: {category.plans_count || 0}
-                                </p>
-                                <Button asChild className="w-full">
-                                    <Link to={`/categories/${category.id}`}>Planları Görüntüle</Link>
-                                </Button>
-                            </CardContent>
-                        </Card>
+                    categories.map((category,index) => (
+                        <AnimatedListItem key={category.id} delay={index * 100}>
+                            <Card key={category.id} className="hover:shadow-xl transition-shadow duration-300">
+                                <CardHeader>
+                                    <CardTitle>{category.name}</CardTitle>
+                                    <CardDescription>
+                                        {category.description || 'Açıklama bulunmamaktadır.'}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="flex flex-col gap-4">
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                        Mevcut Plan Sayısı: {category.plans_count || 0}
+                                    </p>
+                                    <Button asChild className="w-full">
+                                        <Link to={`/categories/${category.id}/plans/`}>Planları Görüntüle</Link>
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        </AnimatedListItem>
+
                     ))
                 ) : (
                     <div className="col-span-full text-center text-gray-600 dark:text-gray-400">

@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form'; // Controller'ı da içe aktar
-import { zodResolver } from '@hookform/resolvers/zod'; // Zod resolver'ı içe aktar
-import * as z from 'zod'; // Zod kütüphanesini içe aktar
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import {
     getAllFeatures,
     createFeature,
     updateFeature,
     deleteFeature,
-} from '../../api/features'; // Özellik API fonksiyonlarını src/api/features.js'den içe aktar
+} from '../../api/features'; // Özellik API fonksiyonlarını içe aktar
 import { useToastContext } from '../../hooks/toast-utils'; // Toast bildirimleri için
+import { useTranslation } from 'react-i18next'; // Çeviri için
 
 // Shadcn UI bileşenleri
 import {
@@ -31,246 +32,281 @@ import {
 } from '../../components/ui/dialog';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Textarea } from '../../components/ui/textarea';
 import { Skeleton } from '../../components/ui/skeleton';
+import { PlusCircle, Edit, Trash2, ArrowUpDown } from 'lucide-react'; // İkonlar için
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // React Query için
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from '../../components/ui/pagination'; // Sayfalama için
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '../../components/ui/select'; // Dropdown seçimleri için
+} from '../../components/ui/select'; // Sıralama ve sayfa boyutu için
+
 
 // Zod ile özellik formunun şemasını tanımla
 const featureSchema = z.object({
     name: z.string().min(2, { message: "Özellik adı en az 2 karakter olmalıdır." }),
-    unit: z.string().optional(),
-    type: z.enum(["numeric", "boolean", "text", "enum"], { // Belirli tiplerle kısıtla
-        required_error: "Özellik tipi seçilmelidir.",
-        invalid_type_error: "Geçersiz özellik tipi.",
-    }),
+    unit: z.string().optional(), // Birim alanı isteğe bağlı
 });
 
 const FeaturesAdmin = () => {
-    const [features, setFeatures] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [isDialogOpen, setIsDialogOpen] = useState(false); // Ekleme/Düzenleme diyaloğu
-    const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false); // Onay diyaloğu
-    const [featureToDeleteId, setFeatureToDeleteId] = useState(null); // Silinecek özellik ID'si
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+    const [featureToDeleteId, setFeatureToDeleteId] = useState(null);
     const [currentFeature, setCurrentFeature] = useState(null); // Düzenlenecek özellik
     const { toast } = useToastContext();
+    const { t } = useTranslation();
 
-    // useForm hook'unu başlat
+    // Filtreleme ve Sıralama State'leri
+    const [inputValue, setInputValue] = useState(''); // Arama inputunun anlık değeri için
+    const [search, setSearch] = useState(''); // API'ye gönderilecek arama terimi için (debounced)
+    const [sortBy, setSortBy] = useState('created_at');
+    const [sortOrder, setSortOrder] = useState('desc');
+    const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(10);
+
+    const queryClient = useQueryClient();
+
+    // Arama inputu için debounce efekti
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            if (inputValue.length >= 3 || inputValue === '') {
+                setSearch(inputValue);
+                setPage(1); // Arama yapıldığında sayfayı sıfırla
+            }
+        }, 500);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [inputValue]);
+
+    // Özellikleri çekmek için useQuery
+    const { data, isLoading, isError, error } = useQuery({
+        queryKey: ['features', { search, sortBy, sortOrder, page, perPage }],
+        queryFn: () => getAllFeatures({ search, sort_by: sortBy, sort_order: sortOrder, page, per_page: perPage }),
+        keepPreviousData: true,
+    });
+
+    const features = data?.data || [];
+    const paginationMeta = data?.meta;
+    console.log("Pagination Meta:", paginationMeta);
+
     const {
         register,
         handleSubmit,
-        formState: { errors },
-        reset, // Formu sıfırlamak için
-        setValue, // Form alanlarına değer atamak için
-        control, // Controller bileşeni için
+        reset,
+        formState: { errors, isSubmitting },
     } = useForm({
         resolver: zodResolver(featureSchema),
+        defaultValues: {
+            name: '',
+            unit: '',
+        },
     });
 
-    // Özellikleri API'den çekme fonksiyonu
-    const fetchFeatures = async () => {
-        setLoading(true);
-        try {
-            const data = await getAllFeatures(); // src/api/features.js'den çağırılıyor
-            setFeatures(data);
-        } catch (err) {
-            setError(err.message || 'Özellikler yüklenirken bir hata oluştu.');
-            toast({
-                title: 'Hata',
-                description: 'Özellikler yüklenirken bir sorun oluştu.',
-                variant: 'destructive',
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchFeatures();
-    }, []);
-
-    // Diyalog açıldığında veya currentFeature değiştiğinde formu doldur
+    // Dialog açıldığında veya currentFeature değiştiğinde formu resetle
     useEffect(() => {
         if (isDialogOpen && currentFeature) {
-            setValue('name', currentFeature.name);
-            setValue('unit', currentFeature.unit || '');
-            setValue('type', currentFeature.type || '');
-        } else if (!isDialogOpen) {
-            reset(); // Diyalog kapandığında formu sıfırla
-            setCurrentFeature(null); // currentFeature'yi de sıfırla
-        }
-    }, [isDialogOpen, currentFeature, reset, setValue]);
-
-    // Yeni özellik ekleme veya mevcut özelliği düzenleme
-    const onSubmit = async (data) => {
-        try {
-            if (currentFeature) {
-                // Özelliği düzenle
-                await updateFeature(currentFeature.id, data); // src/api/features.js'den çağırılıyor
-                toast({
-                    title: 'Başarılı',
-                    description: 'Özellik başarıyla güncellendi.',
-                });
-            } else {
-                // Yeni özellik oluştur
-                await createFeature(data); // src/api/features.js'den çağırılıyor
-                toast({
-                    title: 'Başarılı',
-                    description: 'Yeni özellik başarıyla oluşturuldu.',
-                });
-            }
-            setIsDialogOpen(false); // Diyaloğu kapat
-            fetchFeatures(); // Özellikleri yeniden çek
-        } catch (err) {
-            toast({
-                title: 'Hata',
-                description: `Özellik kaydedilirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
-                variant: 'destructive',
+            reset({
+                name: currentFeature.name || '',
+                unit: currentFeature.unit || '',
+            });
+        } else if (isDialogOpen && !currentFeature) {
+            // Yeni özellik oluşturuluyorsa formu temizle
+            reset({
+                name: '',
+                unit: '',
             });
         }
+    }, [isDialogOpen, currentFeature, reset]);
+
+    const handleAddFeatureClick = () => {
+        setCurrentFeature(null);
+        setIsDialogOpen(true);
     };
 
-    // Özellik düzenleme diyaloğunu açma
-    const handleEditClick = (feature) => {
+    const handleEditFeatureClick = (feature) => {
         setCurrentFeature(feature);
         setIsDialogOpen(true);
     };
 
-    // Özellik silme onay diyaloğunu açma
     const handleDeleteClick = (featureId) => {
         setFeatureToDeleteId(featureId);
         setIsConfirmDialogOpen(true);
     };
 
-    // Özellik silme işlemini gerçekleştirme
     const confirmDeleteFeature = async () => {
-        setIsConfirmDialogOpen(false); // Onay diyaloğunu kapat
-        if (featureToDeleteId) {
-            try {
-                await deleteFeature(featureToDeleteId); // src/api/features.js'den çağırılıyor
-                toast({
-                    title: 'Başarılı',
-                    description: 'Özellik başarıyla silindi.',
-                });
-                fetchFeatures(); // Özellikleri yeniden çek
-            } catch (err) {
-                toast({
-                    title: 'Hata',
-                    description: `Özellik silinirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
-                    variant: 'destructive',
-                });
-            } finally {
-                setFeatureToDeleteId(null); // Silinecek ID'yi sıfırla
-            }
+        if (!featureToDeleteId) return;
+        try {
+            await deleteFeature(featureToDeleteId);
+            queryClient.invalidateQueries(['features']); // Özellikleri yeniden çek
+            toast({
+                title: t("feature_deleted_successfully"),
+                description: t("feature_deleted_successfully_description"),
+                variant: "success",
+            });
+        } catch (error) {
+            toast({
+                title: t("delete_error"),
+                description: t("failed_to_delete_feature"),
+                variant: "destructive",
+            });
+            console.error("Özellik silme hatası:", error);
+        } finally {
+            setIsConfirmDialogOpen(false);
+            setFeatureToDeleteId(null);
         }
     };
 
-    if (loading) {
+    const onSubmit = async (data) => {
+        try {
+            if (currentFeature) {
+                await updateFeature(currentFeature.id, data);
+                toast({
+                    title: t("feature_updated_successfully"),
+                    description: t("feature_updated_successfully_description"),
+                    variant: "success",
+                });
+            } else {
+                await createFeature(data);
+                toast({
+                    title: t("feature_created_successfully"),
+                    description: t("feature_created_successfully_description"),
+                    variant: "success",
+                });
+            }
+            queryClient.invalidateQueries(['features']); // Özellikleri yeniden çek
+            setIsDialogOpen(false);
+            reset();
+        } catch (error) {
+            toast({
+                title: t("operation_failed"),
+                description: error.message || (currentFeature ? t("failed_to_update_feature") : t("failed_to_create_feature")),
+                variant: "destructive",
+            });
+            console.error("Özellik işlemi hatası:", error.response?.data || error.message);
+        }
+    };
+
+    // Sıralama başlığına tıklandığında sıralama yönünü değiştir
+    const handleSort = (column) => {
+        if (sortBy === column) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortBy(column);
+            setSortOrder('asc'); // Yeni sütuna göre sıralarken varsayılan olarak artan
+        }
+    };
+
+    if (isLoading) {
         return (
             <div className="container mx-auto px-4 py-8">
-                <h1 className="text-4xl font-bold text-center mb-10">Özellik Yönetimi</h1>
+                <h1 className="text-4xl font-bold text-center mb-10">{t('admin_features_page_title')}</h1>
+                <Skeleton className="h-10 w-full mb-4" />
+                <Skeleton className="h-12 w-full mb-4" />
                 <div className="space-y-4">
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-48 w-full" />
+                    {[...Array(5)].map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full" />
+                    ))}
                 </div>
             </div>
         );
     }
 
-    if (error) {
+    if (isError) {
         return (
             <div className="container mx-auto px-4 py-8 text-center text-red-500">
-                <p>{error}</p>
-                <Button onClick={fetchFeatures} className="mt-4">
-                    Tekrar Dene
-                </Button>
+                <p>{t('error_loading_features')}: {error.message}</p>
             </div>
         );
     }
 
     return (
         <div className="container mx-auto px-4 py-8">
-            <h1 className="text-4xl font-bold text-center text-gray-900 dark:text-white mb-10">
-                Özellik Yönetimi
-            </h1>
+            <h1 className="text-4xl font-bold text-center text-gray-900 dark:text-white mb-10">{t('admin_features_page_title')}</h1>
 
-            <div className="flex justify-end mb-6">
+            <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
-                        <Button onClick={() => {
-                            setCurrentFeature(null); // Yeni ekleme için currentFeature'yi sıfırla
-                            setIsDialogOpen(true);
-                        }}>Yeni Özellik Ekle</Button>
+                        <Button onClick={handleAddFeatureClick}>
+                            <PlusCircle className="mr-2 h-5 w-5" /> {t('add_new_feature')}
+                        </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[425px]">
                         <DialogHeader>
-                            <DialogTitle>{currentFeature ? 'Özelliği Düzenle' : 'Yeni Özellik Ekle'}</DialogTitle>
+                            <DialogTitle>{currentFeature ? t('edit_feature_title') : t('create_feature')}</DialogTitle>
                             <DialogDescription>
-                                {currentFeature
-                                    ? 'Özellik bilgilerini güncelleyin.'
-                                    : 'Yeni bir özellik oluşturmak için bilgileri girin.'}
+                                {currentFeature ? t('edit_feature_description') : t('add_new_feature_description')}
                             </DialogDescription>
                         </DialogHeader>
                         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="name" className="text-right">
-                                    Ad
-                                </Label>
-                                <Input
-                                    id="name"
-                                    {...register("name")}
-                                    className="col-span-3"
-                                />
-                                {errors.name && <p className="col-span-4 text-red-500 text-sm text-right">{errors.name.message}</p>}
+                            <div className="grid gap-2">
+                                <Label htmlFor="name">{t('feature_name')}</Label>
+                                <Input id="name" {...register("name")} />
+                                {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
                             </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="unit" className="text-right">
-                                    Birim
-                                </Label>
-                                <Input
-                                    id="unit"
-                                    {...register("unit")}
-                                    className="col-span-3"
-                                    placeholder="Örn: GB, Adet, Mbps"
-                                />
-                                {errors.unit && <p className="col-span-4 text-red-500 text-sm text-right">{errors.unit.message}</p>}
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="type" className="text-right">
-                                    Tip
-                                </Label>
-                                {/* Select bileşeni için Controller kullanıyoruz */}
-                                <Controller
-                                    name="type"
-                                    control={control}
-                                    render={({ field }) => (
-                                        <Select onValueChange={field.onChange} value={field.value} className="col-span-3">
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Özellik Tipini Seçin" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="numeric">Sayısal</SelectItem>
-                                                <SelectItem value="boolean">Boolean (Evet/Hayır)</SelectItem>
-                                                <SelectItem value="text">Metin</SelectItem>
-                                                <SelectItem value="enum">Seçenekli</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                />
-                                {errors.type && <p className="col-span-4 text-red-500 text-sm text-right">{errors.type.message}</p>}
+                            <div className="grid gap-2">
+                                <Label htmlFor="unit">{t('feature_unit')}</Label>
+                                <Input id="unit" {...register("unit")} placeholder={t('feature_unit_placeholder')} />
+                                {errors.unit && <p className="text-red-500 text-sm">{errors.unit.message}</p>}
                             </div>
                             <DialogFooter>
-                                <Button type="submit">Kaydet</Button>
+                                <Button type="submit" disabled={isSubmitting}>
+                                    {isSubmitting ? (currentFeature ? t('updating') : t('creating')) : (currentFeature ? t('save') : t('create'))}
+                                </Button>
                             </DialogFooter>
                         </form>
                     </DialogContent>
                 </Dialog>
+
+                <div className="flex items-center space-x-2">
+                    <Input
+                        placeholder={t('search_feature')}
+                        value={inputValue}
+                        onChange={(e) => {
+                            setInputValue(e.target.value);
+                        }}
+                        className="max-w-sm"
+                    />
+                    <Select onValueChange={(value) => { setSortBy(value); setPage(1); }} value={sortBy}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder={t('sort_by')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="name">{t('name_ascending')}</SelectItem>
+                            <SelectItem value="created_at">{t('created_at_descending')}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Select onValueChange={(value) => { setSortOrder(value); setPage(1); }} value={sortOrder}>
+                        <SelectTrigger className="w-[120px]">
+                            <SelectValue placeholder={t('sort_direction')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="asc">{t('ascending')}</SelectItem>
+                            <SelectItem value="desc">{t('descending')}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Select onValueChange={(value) => { setPerPage(Number(value)); setPage(1); }} value={String(perPage)}>
+                        <SelectTrigger className="w-[100px]">
+                            <SelectValue placeholder={t('page_size')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="5">5</SelectItem>
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="20">20</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
 
             {features.length > 0 ? (
@@ -278,10 +314,14 @@ const FeaturesAdmin = () => {
                     <TableHeader>
                         <TableRow>
                             <TableHead>ID</TableHead>
-                            <TableHead>Ad</TableHead>
-                            <TableHead>Birim</TableHead>
-                            <TableHead>Tip</TableHead>
-                            <TableHead className="text-right">İşlemler</TableHead>
+                            <TableHead className="cursor-pointer hover:text-gray-700 dark:hover:text-gray-300" onClick={() => handleSort('name')}>
+                                {t('feature_name')} {sortBy === 'name' && <ArrowUpDown className={`inline-block ml-1 h-4 w-4 ${sortOrder === 'asc' ? 'rotate-180' : ''}`} />}
+                            </TableHead>
+                            <TableHead>{t('feature_unit')}</TableHead>
+                            <TableHead className="cursor-pointer hover:text-gray-700 dark:hover:text-gray-300" onClick={() => handleSort('created_at')}>
+                                {t('feature_created_at')} {sortBy === 'created_at' && <ArrowUpDown className={`inline-block ml-1 h-4 w-4 ${sortOrder === 'asc' ? 'rotate-180' : ''}`} />}
+                            </TableHead>
+                            <TableHead className="text-right">{t('feature_actions')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -289,14 +329,14 @@ const FeaturesAdmin = () => {
                             <TableRow key={feature.id}>
                                 <TableCell className="font-medium">{feature.id}</TableCell>
                                 <TableCell>{feature.name}</TableCell>
-                                <TableCell>{feature.unit || '-'}</TableCell>
-                                <TableCell>{feature.type}</TableCell>
-                                <TableCell className="text-right space-x-2">
-                                    <Button variant="outline" size="sm" onClick={() => handleEditClick(feature)}>
-                                        Düzenle
+                                <TableCell>{feature.unit || 'N/A'}</TableCell>
+                                <TableCell>{new Date(feature.created_at).toLocaleDateString('tr-TR')}</TableCell>
+                                <TableCell className="text-right flex space-x-2 justify-end">
+                                    <Button variant="outline" size="sm" onClick={() => handleEditFeatureClick(feature)}>
+                                        <Edit className="h-4 w-4" />
                                     </Button>
                                     <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(feature.id)}>
-                                        Sil
+                                        <Trash2 className="h-4 w-4" />
                                     </Button>
                                 </TableCell>
                             </TableRow>
@@ -305,25 +345,55 @@ const FeaturesAdmin = () => {
                 </Table>
             ) : (
                 <div className="text-center text-gray-600 dark:text-gray-400">
-                    Henüz hiç özellik bulunmamaktadır.
+                    {t('no_features_found')}
                 </div>
+            )}
+
+            {/* Sayfalama Kontrolleri */}
+            {paginationMeta && paginationMeta.last_page > 1 && (
+                <Pagination className="mt-6">
+                    <PaginationContent>
+                        <PaginationItem>
+                            <PaginationPrevious
+                                onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                                disabled={page === 1}
+                            />
+                        </PaginationItem>
+                        {[...Array(paginationMeta.last_page)].map((_, i) => (
+                            <PaginationItem key={i}>
+                                <PaginationLink
+                                    onClick={() => setPage(i + 1)}
+                                    isActive={page === i + 1}
+                                >
+                                    {i + 1}
+                                </PaginationLink>
+                            </PaginationItem>
+                        ))}
+                        <PaginationItem>
+                            <PaginationNext
+                                onClick={() => setPage(prev => Math.min(prev + 1, paginationMeta.last_page))}
+                                disabled={page === paginationMeta.last_page}
+                            />
+                        </PaginationItem>
+                    </PaginationContent>
+                </Pagination>
             )}
 
             {/* Silme Onay Diyaloğu */}
             <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
-                        <DialogTitle>Silme Onayı</DialogTitle>
+                        <DialogTitle>{t('confirm_delete_feature')}</DialogTitle>
                         <DialogDescription>
-                            Bu özelliği silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                            {t('delete_feature_confirmation_message')}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
-                            İptal
+                            {t('cancel')}
                         </Button>
                         <Button variant="destructive" onClick={confirmDeleteFeature}>
-                            Sil
+                            {t('delete')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

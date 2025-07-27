@@ -8,48 +8,38 @@ import { ComparisonProvider } from './context/ComparisonContext'
 import { ToastProvider } from './hooks/use-toast'
 import { ThemeProvider } from './context/ThemeContext'
 import { TooltipProvider } from './components/ui/tooltip'
-// // Sentry entegrasyonu için importlar
-// import * as Sentry from "@sentry/react";
-// // BrowserTracing'i @sentry/integrations paketinden içe aktarıyoruz
-// import { BrowserTracing } from "@sentry/integrations"; 
+import { I18nextProvider } from 'react-i18next'
+import i18n from './i18n';
 
-// Sentry.init({
-//   dsn: "https://c425c4c98e952e29f72bfe0714721213@o4509702970146816.ingest.de.sentry.io/4509702976176208",
-//   integrations: [
-//     // BrowserTracing'i doğrudan named import olarak kullanın
-//     new BrowserTracing({
-//       // Sentry'nin izleme başlıklarını ekleyeceği URL'leri belirtin.
-//       // Bu, API isteklerinizin Sentry'de izlenmesini sağlar.
-//       // Kendi API URL'nizi veya regex'inizi buraya ekleyin.
-//       tracePropagationTargets: ["localhost", /^\//, "http://localhost:8000/api/v1"],
-//     }),
-//   ],
-//   // İşlem izleme için tracesSampleRate'i 1.0 olarak ayarlayarak
-//   // işlemlerin %100'ünü yakalayın. Üretimde bu değeri ayarlamanız önerilir.
-//   tracesSampleRate: 1.0,
-//   // Uygulamanın çalıştığı ortamı belirtin (development, production vb.)
-//   environment: import.meta.env.NODE_ENV,
-//   // Geliştirme ortamında Sentry debug modunu açın
-//   debug: import.meta.env.NODE_ENV === 'development',
-//   // environment: import.meta.env.production, // 'development' veya 'production'
-// });
+import * as Sentry from "@sentry/react";
+
+Sentry.init({
+  dsn: "https://c425c4c98e952e29f72bfe0714721213@o4509702970146816.ingest.de.sentry.io/4509702976176208",
+  // Setting this option to true will send default PII data to Sentry.
+  // For example, automatic IP address collection on events
+  
+  sendDefaultPii: true
+});
+
 
 
 const queryClient = new QueryClient();
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <ToastProvider>
-          <AuthProvider>
-            <TooltipProvider> 
-            <ComparisonProvider>
-              <App />
-            </ComparisonProvider>
-            </TooltipProvider>
-          </AuthProvider>
-        </ToastProvider>
-      </ThemeProvider>
+      <I18nextProvider i18n={i18n}>
+        <ThemeProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <TooltipProvider>
+                <ComparisonProvider>
+                  <App />
+                </ComparisonProvider>
+              </TooltipProvider>
+            </AuthProvider>
+          </ToastProvider>
+        </ThemeProvider>
+      </I18nextProvider>
     </QueryClientProvider>
   </StrictMode>,
 )

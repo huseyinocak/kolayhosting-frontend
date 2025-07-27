@@ -81,13 +81,13 @@ const PlanDetailPage = () => {
                 setReviews(reviewsData);
 
             } catch (err) {
-                console.error('Plan detayları yüklenirken hata:', err);
                 setError('Plan detayları yüklenemedi. Lütfen daha sonra tekrar deneyin.');
                 toast({
                     title: "Hata",
                     description: "Plan detayları yüklenirken bir sorun oluştu.",
                     variant: "destructive",
                 });
+                throw new Error('Plan detayları yüklenirken hata:', err);
             } finally {
                 setLoading(false);
             }
@@ -113,11 +113,13 @@ const PlanDetailPage = () => {
                 plan_id: plan.id,
                 user_id: user.id, // Authenticated kullanıcının ID'si
                 rating: Number(data.rating), // Sayıya çevir
+                status: 'pending', // Yorum durumu başlangıçta "pending"
             };
             await createReview(reviewPayload);
             toast({
                 title: "Yorum Gönderildi",
                 description: "Yorumunuz başarıyla gönderildi ve onay bekliyor.",
+                variant: "success", // Başarılı bir gönderim bildirimi
             });
             reset(); // Formu sıfırla
             // Yorumu hemen listeye ekle ama durumu "pending" olarak işaretle
@@ -131,12 +133,12 @@ const PlanDetailPage = () => {
                 ...prevReviews
             ]);
         } catch (err) {
-            console.error('Yorum gönderilirken hata:', err);
             toast({
                 title: "Yorum Gönderme Hatası",
                 description: `Yorumunuz gönderilirken bir sorun oluştu: ${err.response?.data?.message || err.message}`,
                 variant: "destructive",
             });
+            throw new Error('Yorum gönderilirken hata:', err);
         }
     };
 

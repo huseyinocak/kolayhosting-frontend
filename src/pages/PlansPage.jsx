@@ -21,6 +21,7 @@ import {
 import { Checkbox } from '../components/ui/checkbox'; // Karşılaştırma için checkbox
 import { Badge } from '../components/ui/badge'; // İndirim ve diğer durumlar için
 import { useQuery } from '@tanstack/react-query'; // React Query useQuery hook'unu içe aktar
+import AnimatedListItem from '@/components/AnimatedListItem';
 
 const PlansPage = () => {
     const { toast } = useToastContext();
@@ -321,61 +322,64 @@ const PlansPage = () => {
             {/* Plan Kartları */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {plans.length > 0 ? (
-                    plans.map((plan) => (
-                        <Card key={plan.id} className="hover:shadow-xl transition-shadow duration-300">
-                            <CardHeader>
-                                <CardTitle>{plan.name}</CardTitle>
-                                <CardDescription>
-                                    {plan.category?.name && (
-                                        <Badge variant="secondary" className="mr-2">
-                                            {plan.category.name}
-                                        </Badge>
-                                    )}
-                                    {plan.provider?.name && (
-                                        <Badge variant="outline">
-                                            {plan.provider.name}
-                                        </Badge>
-                                    )}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex flex-col gap-4">
-                                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                                    {plan.price} {plan.currency}
-                                    {plan.discount_percentage > 0 && (
-                                        <span className="ml-2 text-sm text-red-500 line-through">
-                                            {(plan.price / (1 - plan.discount_percentage / 100)).toFixed(2)} {plan.currency}
-                                        </span>
-                                    )}
-                                </p>
-                                {plan.renewal_price && (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        Yenileme: {plan.renewal_price} {plan.currency}
+                    plans.map((plan, index) => (
+                        <AnimatedListItem key={plan.id} delay={index * 100}>
+                            <Card key={plan.id} className="hover:shadow-xl transition-shadow duration-300">
+                                <CardHeader>
+                                    <CardTitle>{plan.name}</CardTitle>
+                                    <CardDescription>
+                                        {plan.category?.name && (
+                                            <Badge variant="secondary" className="mr-2">
+                                                {plan.category.name}
+                                            </Badge>
+                                        )}
+                                        {plan.provider?.name && (
+                                            <Badge variant="outline">
+                                                {plan.provider.name}
+                                            </Badge>
+                                        )}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="flex flex-col gap-4">
+                                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                        {plan.price} {plan.currency}
+                                        {plan.discount_percentage > 0 && (
+                                            <span className="ml-2 text-sm text-red-500 line-through">
+                                                {(plan.price / (1 - plan.discount_percentage / 100)).toFixed(2)} {plan.currency}
+                                            </span>
+                                        )}
                                     </p>
-                                )}
-                                <p className="text-gray-700 dark:text-gray-300 text-sm">
-                                    {plan.summary || 'Bu plan için özet bilgi bulunmamaktadır.'}
-                                </p>
-                                <div className="flex items-center justify-between mt-auto">
-                                    <Button asChild className="w-full mr-2">
-                                        <Link to={`/plans/${plan.id}`}>Detayları Görüntüle</Link>
-                                    </Button>
-                                    <div className="flex items-center space-x-2">
-                                        <Checkbox
-                                            id={`compare-${plan.id}`}
-                                            checked={isPlanInComparison(plan.id)}
-                                            onCheckedChange={(checked) => handleCompareCheckboxChange(plan, checked)}
-                                            disabled={plansToCompare.length >= MAX_COMPARISON_LIMIT && !isPlanInComparison(plan.id)}
-                                        />
-                                        <label
-                                            htmlFor={`compare-${plan.id}`}
-                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                        >
-                                            Karşılaştır
-                                        </label>
+                                    {plan.renewal_price && (
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                                            Yenileme: {plan.renewal_price} {plan.currency}
+                                        </p>
+                                    )}
+                                    <p className="text-gray-700 dark:text-gray-300 text-sm">
+                                        {plan.summary || 'Bu plan için özet bilgi bulunmamaktadır.'}
+                                    </p>
+                                    <div className="flex items-center justify-between mt-auto">
+                                        <Button asChild className="w-full mr-2">
+                                            <Link to={`/plans/${plan.id}`}>Detayları Görüntüle</Link>
+                                        </Button>
+                                        <div className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id={`compare-${plan.id}`}
+                                                checked={isPlanInComparison(plan.id)}
+                                                onCheckedChange={(checked) => handleCompareCheckboxChange(plan, checked)}
+                                                disabled={plansToCompare.length >= MAX_COMPARISON_LIMIT && !isPlanInComparison(plan.id)}
+                                            />
+                                            <label
+                                                htmlFor={`compare-${plan.id}`}
+                                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                            >
+                                                Karşılaştır
+                                            </label>
+                                        </div>
                                     </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        </AnimatedListItem>
+
                     ))
                 ) : (
                     <div className="col-span-full text-center text-gray-600 dark:text-gray-400">

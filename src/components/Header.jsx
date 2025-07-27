@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth'; // useAuth hook'unu doğru yerden içe aktar
 import { useToastContext } from '../hooks/toast-utils'; // useToastContext hook'unu içe aktar
-import { Menu, Sun, Moon } from 'lucide-react'; // Hamburger menü ikonu için
+import { Menu, Sun, Moon, Globe } from 'lucide-react'; // Hamburger menü ikonu için
 
 // Shadcn UI bileşenleri
 import { Button } from './ui/button';
@@ -29,52 +29,91 @@ import {
 // useTheme hook'unu import et
 import { useTheme } from '../hooks/useTheme';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { useTranslation } from 'react-i18next';
 
 const Header = () => {
     const { user, isAuthenticated, logout } = useAuth(); // Kullanıcı, kimlik doğrulama durumu ve yükleme fonksiyonu
     const navigate = useNavigate(); // Yönlendirme için
     const { toast } = useToastContext(); // useToastContext'ten toast bildirim fonksiyonunu alıyoruz
     const { theme, toggleTheme } = useTheme(); // useTheme hook'unu kullan
-
+    const { t, i18n } = useTranslation(); // t ve i18n objesini al
     const handleLogout = async () => {
         await logout(); // useAuth hook'undan gelen logout fonksiyonunu çağır
         toast({ // Toast bildirimi eklendi
-            title: "Çıkış Yapıldı",
-            description: "Başarıyla oturumunuz kapatıldı.",
+            title: t('logout_success_title'),
+            description: t('logout_success_description'),
+            variant: 'success', // Başarılı bir çıkış bildirimi
         });
         navigate('/login'); // Çıkış yaptıktan sonra giriş sayfasına yönlendir
     };
-
+    const changeLanguage = (lng) => {
+        i18n.changeLanguage(lng);
+        toast({
+            title: t('language_changed_title'), // Yeni çeviri anahtarı
+            description: t('language_changed_description', { lang: lng === 'tr' ? 'Türkçe' : 'English' }), // Yeni çeviri anahtarı
+            variant: 'success', // Başarılı bir değişiklik bildirimi
+        });
+    };
     return (
         <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-40">
             <nav className="container mx-auto px-4 py-3 flex items-center justify-between">
                 {/* Logo */}
                 <Link to="/" className="flex items-center space-x-2">
-                    <img src="/logo.webp" alt="KolayHosting Logo" className="h-8 md:h-10" />
+                    <img src="/kolayhosting_logosu.png" alt="KolayHosting Logo" className="h-8 md:h-10" />
                     <span className="text-2xl font-bold text-gray-900 dark:text-white">KolayHosting</span>
                 </Link>
 
                 {/* Navigasyon Linkleri (Masaüstü) */}
                 <div className="hidden md:flex items-center space-x-6">
                     <Link to="/categories" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-base font-medium">
-                        Kategoriler
+                        {t('categories')} {/* Çeviri kullan */}
                     </Link>
                     <Link to="/plans" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-base font-medium">
-                        Planlar
+                        {t('plans')} {/* Çeviri kullan */}
                     </Link>
                     <Link to="/providers" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-base font-medium">
-                        Sağlayıcılar
+                        {t('providers')} {/* Çeviri kullan */}
                     </Link>
                     <Link to="/features" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-base font-medium">
-                        Özellikler
+                        {t('features')} {/* Çeviri kullan */}
                     </Link>
                     <Link to="/compare" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-base font-medium">
-                        Karşılaştır
+                        {t('compare')} {/* Çeviri kullan */}
                     </Link>
                 </div>
                 {/* Kullanıcı Giriş/Kayıt veya Avatar (Masaüstü) */}
                 <div className="hidden md:flex items-center">
-                   {/* Tema Değiştirme Butonu */}
+                    {/* Dil Değiştirme Butonu */}
+                    <DropdownMenu>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="mr-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 transform hover:scale-110"
+                                        aria-label={t('change_language')} // Çeviri kullan
+                                    >
+                                        <Globe className="h-6 w-6 text-gray-700 dark:text-gray-300" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{t('change_language')}</p> {/* Çeviri kullan */}
+                            </TooltipContent>
+                        </Tooltip>
+                        <DropdownMenuContent className="w-40" align="end">
+                            <DropdownMenuLabel>{t('language')}</DropdownMenuLabel> {/* Yeni çeviri anahtarı */}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => changeLanguage('tr')}>
+                                Türkçe
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => changeLanguage('en')}>
+                                English
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    {/* Tema Değiştirme Butonu */}
                     <Tooltip> {/* Tooltip bileşeni eklendi */}
                         <TooltipTrigger asChild>
                             <Button
@@ -82,7 +121,7 @@ const Header = () => {
                                 size="icon"
                                 onClick={toggleTheme}
                                 className="mr-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 transform hover:scale-110" // Daha estetik geçişler
-                                aria-label="Temayı Değiştir"
+                                aria-label={theme === 'dark' ? t('toggle_light_mode') : t('toggle_dark_mode')} // Çeviri kullan
                             >
                                 {theme === 'dark' ? (
                                     <Sun className="h-6 w-6 text-yellow-400 transition-colors duration-300" />
@@ -92,7 +131,7 @@ const Header = () => {
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                            <p>{theme === 'dark' ? 'Aydınlık Moda Geç' : 'Karanlık Moda Geç'}</p>
+                            <p>{theme === 'dark' ? t('toggle_light_mode') : t('toggle_dark_mode')}</p> {/* Çeviri kullan */}
                         </TooltipContent>
                     </Tooltip>
                     {isAuthenticated ? (
@@ -100,8 +139,7 @@ const Header = () => {
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                                     <Avatar className="h-9 w-9">
-                                        {/* user objesinin varlığını kontrol ederek avatar_url ve name özelliklerine güvenli erişim */}
-                                        <AvatarImage src={user?.avatar_url || (user?.name ? `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}` : '')} alt={user?.name || 'User'} />
+                                        <AvatarImage src={user?.avatar_url || (user?.name ? `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}` : '')} alt={user?.name || t('user')} />
                                         <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
                                     </Avatar>
                                 </Button>
@@ -109,24 +147,29 @@ const Header = () => {
                             <DropdownMenuContent className="w-56" align="end" forceMount>
                                 <DropdownMenuLabel className="font-normal">
                                     <div className="flex flex-col space-y-1">
-                                        <p className="text-sm font-medium leading-none">{user?.name || 'Misafir'}</p>
+                                        <p className="text-sm font-medium leading-none">{user?.name || t('guest')}</p>
                                         <p className="text-xs leading-none text-muted-foreground">
-                                            {user?.email || 'misafir@example.com'}
+                                            {user?.email || 'guest@example.com'}
                                         </p>
                                     </div>
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuGroup>
                                     <DropdownMenuItem onClick={() => navigate('/profile')}>
-                                        Profil
+                                        {t('profile')}
                                     </DropdownMenuItem>
                                     {user?.role === 'admin' && ( // user objesinin varlığını kontrol et
-                                        <DropdownMenuItem onClick={() => navigate('/admin')}>
-                                            Admin Paneli
-                                        </DropdownMenuItem>
+                                        <>
+                                            <DropdownMenuItem onClick={() => navigate('/admin')}>
+                                                {t('admin_panel')}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => navigate('/admin/users')}>
+                                                {t('user_management')}
+                                            </DropdownMenuItem>
+                                        </>
                                     )}
                                     <DropdownMenuItem onClick={handleLogout}>
-                                        Çıkış Yap
+                                        {t('logout')}
                                     </DropdownMenuItem>
                                 </DropdownMenuGroup>
                             </DropdownMenuContent>
@@ -139,14 +182,14 @@ const Header = () => {
                                     navigate('/login');
                                 }}
                             >
-                                Giriş Yap
+                                {t('login')}
                             </Button>
                             <Button
                                 onClick={() => {
                                     navigate('/register');
                                 }}
                             >
-                                Kaydol
+                                {t('register')}
                             </Button>
                         </div>
                     )}
@@ -158,54 +201,62 @@ const Header = () => {
                         <SheetTrigger asChild>
                             <Button variant="outline" size="icon">
                                 <Menu className="h-6 w-6" />
-                                <span className="sr-only">Menüyü Aç</span>
+                                <span className="sr-only">{t('open_menu')}</span>
                             </Button>
                         </SheetTrigger>
                         <SheetContent side="right">
                             <SheetHeader>
-                                <SheetTitle>Menü</SheetTitle>
+                                <SheetTitle>{t('menu')}</SheetTitle> {/* Çeviri kullan */}
                                 <SheetDescription>
-                                    KolayHosting'e hoş geldiniz.
+                                    {t('welcome_message_short')} {/* Yeni çeviri anahtarı */}
                                 </SheetDescription>
                             </SheetHeader>
                             <nav className="mt-8 flex flex-col space-y-4">
                                 <SheetClose asChild>
-                                    <Link to="/" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Ana Sayfa</Link>
+                                    <Link to="/" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('homepage')}</Link>
                                 </SheetClose>
                                 <SheetClose asChild>
-                                    <Link to="/categories" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Kategoriler</Link>
+                                    <Link to="/categories" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('categories')}</Link>
                                 </SheetClose>
                                 <SheetClose asChild>
-                                    <Link to="/plans" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Planlar</Link>
+                                    <Link to="/plans" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('plans')}</Link>
                                 </SheetClose>
                                 <SheetClose asChild>
-                                    <Link to="/providers" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Sağlayıcılar</Link>
+                                    <Link to="/providers" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('providers')}</Link>
                                 </SheetClose>
                                 <SheetClose asChild>
-                                    <Link to="/features" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Özellikler</Link>
+                                    <Link to="/features" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('features')}</Link>
                                 </SheetClose>
                                 <SheetClose asChild>
-                                    <Link to="/compare" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Karşılaştır</Link>
+                                    <Link to="/compare" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('compare')}</Link>
                                 </SheetClose>
+                                <hr className="my-2 border-gray-200 dark:border-gray-700" />
                                 {isAuthenticated ? (
                                     <>
                                         <SheetClose asChild>
-                                            <Link to="/profile" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Profil</Link>
+                                            <Link to="/profile" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('profile')}</Link>
                                         </SheetClose>
                                         {user?.role === 'admin' && ( // user objesinin varlığını kontrol et
-                                            <SheetClose asChild>
-                                                <Link to="/admin" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Admin Paneli</Link>
-                                            </SheetClose>
+                                            <>
+                                                <SheetClose asChild>
+                                                    <Link to="/admin" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('admin_panel')}</Link>
+                                                </SheetClose>
+                                                <SheetClose asChild>
+                                                    <Link to="/admin/users" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ml-4">
+                                                        {t('user_management')}
+                                                    </Link>
+                                                </SheetClose>
+                                            </>
                                         )}
-                                        <Button onClick={handleLogout} className="w-full mt-4">Çıkış Yap</Button>
+                                        <Button onClick={handleLogout} className="w-full mt-4">{t('logout')}</Button>
                                     </>
                                 ) : (
                                     <div className="flex flex-col space-y-4 mt-4">
                                         <SheetClose asChild>
-                                            <Button variant="outline" onClick={() => navigate('/login')}>Giriş Yap</Button>
+                                            <Button variant="outline" onClick={() => navigate('/login')}>{t('login')}</Button>
                                         </SheetClose>
                                         <SheetClose asChild>
-                                            <Button onClick={() => navigate('/register')}>Kaydol</Button>
+                                            <Button onClick={() => navigate('/register')}>{t('register')}</Button>
                                         </SheetClose>
                                     </div>
                                 )}
