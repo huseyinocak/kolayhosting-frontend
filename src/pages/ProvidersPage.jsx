@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom'; // useSearchParams eklendi
 import { getAllProviders } from '../api/providers'; // Sağlayıcıları çekmek için
 import { useToastContext } from '../hooks/toast-utils'; // Toast bildirimleri için
 import { useQuery } from '@tanstack/react-query'; // React Query useQuery hook'unu içe aktar
@@ -19,31 +19,44 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Sağlayıcı logoları için Avatar
 import { Badge } from '@/components/ui/badge'; // Derecelendirme için Badge
 import AnimatedListItem from '@/components/AnimatedListItem';
+import { Frown, Star } from 'lucide-react'; // Frown ve Star ikonu eklendi
+import { Helmet } from 'react-helmet-async'; // Helmet'i içe aktar
+import { useTranslation } from 'react-i18next'; // i18n için useTranslation
 
 const ProvidersPage = () => {
     const { toast } = useToastContext();
+    const { t } = useTranslation();
 
-    // Filtreleme ve Sıralama State'leri
-    const [searchTerm, setSearchTerm] = useState('');
-    const [sortBy, setSortBy] = useState('name_asc'); // 'name_asc', 'name_desc', 'rating_desc', 'created_at_desc'
+    // URL arama parametrelerini yönetmek için useSearchParams
+    const [searchParams, setSearchParams] = useSearchParams();
 
-    // Sayfalama State'leri
-    const [currentPage, setCurrentPage] = useState(1);
+    // Filtreleme ve Sıralama State'leri - URL'den okunuyor
+    const searchTerm = searchParams.get('search') || '';
+    const sortBy = searchParams.get('sortBy') || 'name_asc';
+
+    // Sayfalama State'leri - URL'den okunuyor
+    const currentPage = parseInt(searchParams.get('page') || '1', 10);
     const [itemsPerPage] = useState(9); // Her sayfada 9 sağlayıcı göster
 
-    // Debounce'lu arama terimi için state
-    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+    // Debounce'lu arama terimi için state (Input'tan anlık değer, URL'ye yansıyan debounce'lu değer)
+    const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
 
     // Arama terimini debounce etmek için useEffect
     useEffect(() => {
         const handler = setTimeout(() => {
-            setDebouncedSearchTerm(searchTerm);
-        }, 500); // 500ms gecikme
+            setSearchParams(prev => {
+                const newParams = new URLSearchParams(prev);
+                if (localSearchTerm) newParams.set('search', localSearchTerm);
+                else newParams.delete('search');
+                newParams.set('page', '1'); // Arama değiştiğinde sayfayı sıfırla
+                return newParams;
+            }, { replace: true }); // URL'yi geçmişe eklemeden değiştir
+        }, 500);
 
         return () => {
             clearTimeout(handler);
         };
-    }, [searchTerm]);
+    }, [localSearchTerm, setSearchParams]);
 
     // Sıralama parametrelerini ayır
     const sortParams = useMemo(() => {
@@ -51,24 +64,30 @@ const ProvidersPage = () => {
         return { sort_by, sort_order };
     }, [sortBy]);
 
-    // React Query ile sağlayıcıları çek
-    const { data, isLoading, isError, error } = useQuery({
-        queryKey: ['providers', debouncedSearchTerm, sortParams, currentPage, itemsPerPage],
+    // Sağlayıcıları çekmek için useQuery
+    const { data: providersData, isLoading, isError, error } = useQuery({
+        queryKey: [
+            'providers',
+            searchTerm, // Debounce'lu terim doğrudan kullanılıyor
+            sortParams,
+            currentPage,
+            itemsPerPage
+        ],
         queryFn: () => getAllProviders({
-            name: debouncedSearchTerm,
+            name: searchTerm,
             sort_by: sortParams.sort_by,
             sort_order: sortParams.sort_order,
             page: currentPage,
             per_page: itemsPerPage,
         }),
-        keepPreviousData: true, // Yeni veri yüklenirken eski veriyi göster
-        staleTime: 5 * 60 * 1000, // 5 dakika boyunca veriyi "stale" olarak işaretleme
+        keepPreviousData: true,
+        staleTime: 5 * 60 * 1000,
     });
 
     // API'den gelen sağlayıcılar ve sayfalama meta bilgileri
-    const providers = data?.data || [];
-    const totalPages = data?.meta?.last_page || 1;
-    const totalProviders = data?.meta?.total || 0;
+    const providers = providersData?.data || [];
+    const totalPages = providersData?.meta?.last_page || 1;
+    const totalProviders = providersData?.meta?.total || 0;
 
     useEffect(() => {
         if (isError) {
@@ -80,28 +99,101 @@ const ProvidersPage = () => {
         }
     }, [isError, error, toast]);
 
-    const handleSearchChange = (e) => {
-        setSearchTerm(e.target.value);
-        setCurrentPage(1); // Arama yapıldığında sayfayı sıfırla
-    };
-
     const handleSortChange = (value) => {
-        setSortBy(value);
-        setCurrentPage(1); // Sıralama değiştiğinde sayfayı sıfırla
+        setSearchParams(prev => {
+            const newParams = new URLSearchParams(prev);
+            newParams.set('sortBy', value);
+            newParams.set('page', '1');
+            return newParams;
+        }, { replace: true });
     };
 
     const handlePrevPage = () => {
-        setCurrentPage(prev => Math.max(prev - 1, 1));
+        setSearchParams(prev => {
+            const newParams = new URLSearchParams(prev);
+            const prevPage = Math.max(parseInt(newParams.get('page') || '1', 10) - 1, 1);
+            newParams.set('page', String(prevPage));
+            return newParams;
+        }, { replace: true });
     };
 
     const handleNextPage = () => {
-        setCurrentPage(prev => Math.min(prev + 1, totalPages));
+        setSearchParams(prev => {
+            const newParams = new URLSearchParams(prev);
+            const nextPage = Math.min(parseInt(newParams.get('page') || '1', 10) + 1, totalPages);
+            newParams.set('page', String(nextPage));
+            return newParams;
+        }, { replace: true });
     };
 
+    // Dinamik sayfa başlığı ve meta açıklaması
+    const pageTitle = useMemo(() => {
+        let title = t('providers_page_title', { defaultValue: 'Tüm Hosting Sağlayıcıları' });
+        if (searchTerm) {
+            title = `${searchTerm} ${t('providers_search_results', { defaultValue: 'Sağlayıcı Arama Sonuçları' })}`;
+        }
+        return `${title} - KolayHosting`;
+    }, [searchTerm, t]);
+
+    const pageDescription = useMemo(() => {
+        let description = t('providers_page_description', { defaultValue: 'KolayHosting\'de tüm hosting sağlayıcılarını keşfedin. En iyi web hosting, VPS, dedicated sunucu ve bulut hosting sağlayıcılarını karşılaştırın.' });
+        if (searchTerm) {
+            description = `${t('providers_search_description_prefix', { defaultValue: 'Arama sonuçları:' })} ${searchTerm}. ${description}`;
+        }
+        return description;
+    }, [searchTerm, t]);
+
+    // Canonical URL
+    const canonicalUrl = useMemo(() => {
+        const baseUrl = `${window.location.origin}/providers`;
+        const currentParams = new URLSearchParams(searchParams);
+
+        // Sayfalama parametresini kaldır (ilk sayfa için)
+        if (currentParams.get('page') === '1') {
+            currentParams.delete('page');
+        }
+
+        const queryString = currentParams.toString();
+        return queryString ? `${baseUrl}?${queryString}` : baseUrl;
+    }, [searchParams]);
+
+    // Schema.org JSON-LD verisi
+    const providersSchema = {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage", // Sağlayıcılar sayfası için CollectionPage
+        "name": pageTitle,
+        "description": pageDescription,
+        "url": `${window.location.origin}/providers`,
+        "mainEntity": {
+            "@type": "ItemList", // Sağlayıcılar bir liste
+            "numberOfItems": providers.length,
+            "itemListElement": providers.map((provider, index) => ({
+                "@type": "ListItem",
+                "position": index + 1,
+                "item": {
+                    "@type": "Organization",
+                    "name": provider.name,
+                    "url": `${window.location.origin}/providers/${provider.id}`,
+                    "logo": provider.logo_url || `https://placehold.co/120x120/aabbcc/ffffff?text=${provider.name.charAt(0)}`,
+                    "description": provider.description || t('no_description_for_provider'),
+                    "aggregateRating": provider.average_rating > 0 ? {
+                        "@type": "AggregateRating",
+                        "ratingValue": provider.average_rating.toFixed(1),
+                        "reviewCount": provider.review_count,
+                        "bestRating": "5",
+                        "worstRating": "1"
+                    } : undefined
+                }
+            }))
+        }
+    };
+
+
+    // Yükleme durumunda iskelet gösterimi
     if (isLoading) {
         return (
             <div className="container mx-auto px-4 py-8">
-                <h1 className="text-4xl font-bold text-center text-gray-900 dark:text-white mb-10">Sağlayıcılar Yükleniyor...</h1>
+                <Skeleton className="h-10 w-3/4 mb-6" />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {[...Array(itemsPerPage)].map((_, index) => (
                         <Card key={index} className="w-full">
@@ -122,28 +214,39 @@ const ProvidersPage = () => {
 
     return (
         <div className="container mx-auto px-4 py-8">
-            <h1 className="text-4xl font-bold text-center text-gray-900 dark:text-white mb-10">Tüm Hosting Sağlayıcıları</h1>
+            <Helmet>
+                <title>{pageTitle}</title>
+                <meta name="description" content={pageDescription} />
+                <link rel="canonical" href={canonicalUrl} />
+                {providers && (
+                    <script type="application/ld+json">
+                        {JSON.stringify(providersSchema)}
+                    </script>
+                )}
+            </Helmet>
+
+            <h1 className="text-4xl font-bold text-center text-gray-900 dark:text-white mb-10">{t('view_all_providers')}</h1>
 
             {/* Filtreleme ve Sıralama Kontrolleri */}
-            <div className="flex flex-col md:flex-row gap-4 mb-8 items-center justify-center">
+            <div className="flex flex-col md:flex-row gap-4 mb-8 items-center justify-center flex-wrap">
                 <Input
                     type="text"
-                    placeholder="Sağlayıcı ara..."
-                    value={searchTerm}
-                    onChange={handleSearchChange}
+                    placeholder={t('search_providers')}
+                    value={localSearchTerm}
+                    onChange={(e) => setLocalSearchTerm(e.target.value)}
                     className="max-w-sm md:max-w-xs"
                 />
                 <Select value={sortBy} onValueChange={handleSortChange}>
                     <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Sırala" />
+                        <SelectValue placeholder={t('sort_by')} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="name_asc">İsme Göre (A-Z)</SelectItem>
-                        <SelectItem value="name_desc">İsme Göre (Z-A)</SelectItem>
-                        <SelectItem value="average_rating_desc">Derecelendirmeye Göre (Yüksekten)</SelectItem>
-                        <SelectItem value="average_rating_asc">Derecelendirmeye Göre (Düşükten)</SelectItem>
-                        <SelectItem value="created_at_desc">En Yeni</SelectItem>
-                        <SelectItem value="created_at_asc">En Eski</SelectItem>
+                        <SelectItem value="name_asc">{t('name_asc')}</SelectItem>
+                        <SelectItem value="name_desc">{t('name_desc')}</SelectItem>
+                        <SelectItem value="average_rating_desc">{t('rating_desc')}</SelectItem>
+                        <SelectItem value="average_rating_asc">{t('rating_asc')}</SelectItem>
+                        <SelectItem value="created_at_desc">{t('newest')}</SelectItem>
+                        <SelectItem value="created_at_asc">{t('oldest')}</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -153,57 +256,36 @@ const ProvidersPage = () => {
                 {providers.length > 0 ? (
                     providers.map((provider, index) => (
                         <AnimatedListItem key={provider.id} delay={index * 100}>
-                            <Card key={provider.id} className="hover:shadow-xl transition-shadow duration-300">
-                                <CardHeader className="flex flex-row items-center space-x-4 p-6">
-                                    <Avatar className="h-16 w-16">
-                                        <AvatarImage
-                                            src={provider.logo_url || `https://placehold.co/80x80/e2e8f0/000000?text=${provider.name.charAt(0)}`}
-                                            alt={provider.name}
-                                            onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/80x80/e2e8f0/000000?text=${provider.name.charAt(0)}`; }}
-                                        />
-                                        <AvatarFallback>{provider.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex flex-col">
-                                        <CardTitle className="text-xl">{provider.name}</CardTitle>
-                                        <CardDescription className="flex items-center mt-1">
-                                            <Badge variant="secondary" className="mr-2">
-                                                Ort. Derecelendirme: {
-                                                    // average_rating'i sayıya dönüştür ve geçerli bir sayı ise toFixed kullan
-                                                    // Aksi takdirde '0.0' göster
-                                                    !isNaN(parseFloat(provider.average_rating))
-                                                        ? parseFloat(provider.average_rating).toFixed(1)
-                                                        : '0.0'
-                                                } / 5
-                                            </Badge>
-                                            {/* Yıldız ikonları eklenebilir */}
-                                        </CardDescription>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="flex flex-col gap-4">
-                                    <p className="text-gray-700 dark:text-gray-300 text-sm">
-                                        {provider.description || 'Bu sağlayıcı için açıklama bulunmamaktadır.'}
-                                    </p>
-                                    {provider.website_url && (
-                                        <a
-                                            href={provider.website_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 hover:underline text-sm"
-                                        >
-                                            Web Sitesini Ziyaret Et
-                                        </a>
-                                    )}
-                                    <Button asChild className="w-full">
-                                        <Link to={`/providers/${provider.id}`}>Detayları Görüntüle</Link>
-                                    </Button>
-                                </CardContent>
+                            <Card className="h-full flex flex-col items-center p-6 text-center shadow-md hover:shadow-lg transition-shadow duration-300">
+                                <Avatar className="h-20 w-20 mb-4">
+                                    <AvatarImage
+                                        src={provider.logo_url}
+                                        alt={`${provider.name} Logo`}
+                                        onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/80x80/aabbcc/ffffff?text=${provider.name.charAt(0)}`; }}
+                                    />
+                                    <AvatarFallback>{provider.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <CardTitle className="text-2xl font-semibold mb-2">{provider.name}</CardTitle>
+                                {provider.average_rating > 0 && (
+                                    <Badge variant="secondary" className="mb-4 flex items-center gap-1">
+                                        <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                                        {provider.average_rating.toFixed(1)} ({provider.review_count} {t('reviews')})
+                                    </Badge>
+                                )}
+                                <CardDescription className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-3">
+                                    {provider.description || t('no_description_for_provider')}
+                                </CardDescription>
+                                <Button asChild className="w-full">
+                                    <Link to={`/providers/${provider.id}`}>{t('view_details')}</Link>
+                                </Button>
                             </Card>
                         </AnimatedListItem>
-
                     ))
                 ) : (
-                    <div className="col-span-full text-center text-gray-600 dark:text-gray-400">
-                        Filtreleme kriterlerine uygun sağlayıcı bulunmamaktadır.
+                    <div className="col-span-full flex flex-col items-center justify-center py-10 text-gray-600 dark:text-gray-400">
+                        <Frown className="h-16 w-16 mb-4 text-gray-400 dark:text-gray-500" />
+                        <p className="text-xl font-semibold mb-2">{t('no_providers_found')}</p>
+                        <p className="text-center">{t('no_providers_found_message')}</p>
                     </div>
                 )}
             </div>
@@ -216,17 +298,17 @@ const ProvidersPage = () => {
                         disabled={currentPage === 1 || isLoading}
                         variant="outline"
                     >
-                        Önceki
+                        {t('previous')}
                     </Button>
                     <span className="text-lg font-semibold">
-                        Sayfa {currentPage} / {totalPages}
+                        {t('page')} {currentPage} / {totalPages}
                     </span>
                     <Button
                         onClick={handleNextPage}
                         disabled={currentPage === totalPages || isLoading}
                         variant="outline"
                     >
-                        Sonraki
+                        {t('next')}
                     </Button>
                 </div>
             )}

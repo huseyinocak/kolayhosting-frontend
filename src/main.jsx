@@ -12,12 +12,13 @@ import { I18nextProvider } from 'react-i18next'
 import i18n from './i18n';
 
 import * as Sentry from "@sentry/react";
+import { HelmetProvider } from 'react-helmet-async'
 
 Sentry.init({
   dsn: "https://c425c4c98e952e29f72bfe0714721213@o4509702970146816.ingest.de.sentry.io/4509702976176208",
   // Setting this option to true will send default PII data to Sentry.
   // For example, automatic IP address collection on events
-  
+
   sendDefaultPii: true
 });
 
@@ -33,7 +34,9 @@ createRoot(document.getElementById('root')).render(
             <AuthProvider>
               <TooltipProvider>
                 <ComparisonProvider>
-                  <App />
+                  <HelmetProvider>
+                    <App />
+                  </HelmetProvider>
                 </ComparisonProvider>
               </TooltipProvider>
             </AuthProvider>

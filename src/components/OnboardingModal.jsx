@@ -15,13 +15,12 @@
             <Dialog open={isOpen} onOpenChange={onClose}>
                 <DialogContent className="sm:max-w-[425px] p-6">
                     <DialogHeader className="text-center">
-                        {/* <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" /> */}
                         <img src="logo.webp" alt="KolayHosting Logo" className="h-16 w-16 mx-auto mb-4" />
                         <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
-                            KolayHosting'e Hoş Geldiniz, {userName}!
+                            {userName ? `KolayHosting'e Hoş Geldiniz, ${userName}!` : 'KolayHosting\'e Hoş Geldiniz!'}
                         </DialogTitle>
-                        <DialogDescription className="text-lg text-gray-700 dark:text-gray-300 mt-2">
-                            Hosting planlarını karşılaştırmak için en doğru adresiniz.
+                        <DialogDescription className="text-lg text-gray-600 dark:text-gray-400">
+                            Sana en iyi hosting planını bulmanda yardımcı olmak için buradayız. İşte yapabileceklerin:
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-4 text-center">

@@ -80,6 +80,7 @@ const ReviewsAdmin = () => {
     // Filtreleme ve Sıralama State'leri
     const [inputValue, setInputValue] = useState(''); // Arama inputunun anlık değeri için
     const [search, setSearch] = useState(''); // API'ye gönderilecek arama terimi için (debounced)
+    const [filterRating, setFilterRating] = useState('0'); 
     const [filterStatus, setFilterStatus] = useState('all'); // Varsayılan değer "all"
     const [filterPlan, setFilterPlan] = useState('0'); // Varsayılan değer "0" (string olarak)
     const [filterProvider, setFilterProvider] = useState('0'); // Varsayılan değer "0" (string olarak)
@@ -87,6 +88,10 @@ const ReviewsAdmin = () => {
     const [sortOrder, setSortOrder] = useState('desc');
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(10);
+
+    // Select bileşenleri için arama terimleri
+    const [planSearchTerm, setPlanSearchTerm] = useState('');
+    const [providerSearchTerm, setProviderSearchTerm] = useState('');
 
     const queryClient = useQueryClient();
 
@@ -106,7 +111,7 @@ const ReviewsAdmin = () => {
 
     // Yorumları çekmek için useQuery
     const { data: reviewsData, isLoading: isLoadingReviews, isError: isErrorReviews, error: reviewsError } = useQuery({
-        queryKey: ['reviews', { search, status: filterStatus, plan_id: filterPlan, provider_id: filterProvider, sortBy, sortOrder, page, perPage }],
+        queryKey: ['reviews', { search, rating: filterRating, status: filterStatus, plan_id: filterPlan, provider_id: filterProvider, sortBy, sortOrder, page, perPage }],
         queryFn: () => {
             const params = {
                 search,
@@ -115,6 +120,9 @@ const ReviewsAdmin = () => {
                 page,
                 per_page: perPage
             };
+            if (filterRating !== '0') {
+                params.rating = parseInt(filterRating);
+            }
             if (filterStatus !== 'all') {
                 params.status = filterStatus;
             }
@@ -182,6 +190,8 @@ const ReviewsAdmin = () => {
                 content: '',
                 status: 'pending',
             });
+            setPlanSearchTerm(''); // Arama terimlerini sıfırla
+            setProviderSearchTerm('');
         }
     }, [isDialogOpen, currentReview, reset]);
 
@@ -289,6 +299,20 @@ const ReviewsAdmin = () => {
         return stars;
     };
 
+    const filteredPlans = React.useMemo(() => {
+        if (!planSearchTerm) return plans;
+        return plans.filter(plan =>
+            plan.name.toLowerCase().includes(planSearchTerm.toLowerCase())
+        );
+    }, [plans, planSearchTerm]);
+
+    const filteredProviders = React.useMemo(() => {
+        if (!providerSearchTerm) return providers;
+        return providers.filter(prov =>
+            prov.name.toLowerCase().includes(providerSearchTerm.toLowerCase())
+        );
+    }, [providers, providerSearchTerm]);
+
     const isLoadingCombined = isLoadingReviews || isLoadingPlans || isLoadingProviders;
     const isErrorCombined = isErrorReviews || isErrorPlans || isErrorProviders;
     const combinedError = reviewsError || plansError || providersError;
@@ -333,6 +357,17 @@ const ReviewsAdmin = () => {
                         }}
                         className="max-w-sm"
                     />
+                    <Select onValueChange={(value) => { setFilterRating(value); setPage(1); }} value={filterRating}>
+                    <SelectTrigger className="w-[180px] focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+                        <SelectValue placeholder={t('filter_by_rating')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="0">{t('all_ratings')}</SelectItem>
+                        {[1, 2, 3, 4, 5].map(num => (
+                            <SelectItem key={num} value={String(num)}>{num} {t('stars')}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
                     <Select onValueChange={(value) => { setFilterStatus(value); setPage(1); }} value={filterStatus}>
                         <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder={t('filter_by_status')} />
@@ -348,26 +383,50 @@ const ReviewsAdmin = () => {
                         <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder={t('filter_by_plan')} />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                            <div className="px-2 py-1 sticky top-0 bg-white dark:bg-gray-800 z-10">
+                                <Input
+                                    placeholder={t('search_plans')}
+                                    value={planSearchTerm}
+                                    onChange={(e) => setPlanSearchTerm(e.target.value)}
+                                    className="w-full focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                />
+                            </div>
                             <SelectItem value="0">{t('all_plans')}</SelectItem>
-                            {plans.map(plan => (
-                                <SelectItem key={plan.id} value={String(plan.id)}>
-                                    {plan.name}
-                                </SelectItem>
-                            ))}
+                            {filteredPlans.length > 0 ? (
+                                filteredPlans.map(plan => (
+                                    <SelectItem key={plan.id} value={String(plan.id)}>
+                                        {plan.name}
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <div className="p-2 text-center text-gray-500">{t('no_plans_found')}</div>
+                            )}
                         </SelectContent>
                     </Select>
                     <Select onValueChange={(value) => { setFilterProvider(value); setPage(1); }} value={filterProvider}>
                         <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder={t('filter_by_provider')} />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                            <div className="px-2 py-1 sticky top-0 bg-white dark:bg-gray-800 z-10">
+                                <Input
+                                    placeholder={t('search_providers')}
+                                    value={providerSearchTerm}
+                                    onChange={(e) => setProviderSearchTerm(e.target.value)}
+                                    className="w-full focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                />
+                            </div>
                             <SelectItem value="0">{t('all_providers')}</SelectItem>
-                            {providers.map(provider => (
-                                <SelectItem key={provider.id} value={String(provider.id)}>
-                                    {provider.name}
-                                </SelectItem>
-                            ))}
+                            {filteredProviders.length > 0 ? (
+                                filteredProviders.map(provider => (
+                                    <SelectItem key={provider.id} value={String(provider.id)}>
+                                        {provider.name}
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <div className="p-2 text-center text-gray-500">{t('no_providers_found')}</div>
+                            )}
                         </SelectContent>
                     </Select>
                     <Select onValueChange={(value) => { setSortBy(value); setPage(1); }} value={sortBy}>

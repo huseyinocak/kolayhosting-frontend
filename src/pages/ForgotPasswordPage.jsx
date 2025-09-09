@@ -6,6 +6,7 @@ import * as z from 'zod';
 import { useToastContext } from '../hooks/toast-utils';
 import { forgotPassword } from '../api/auth'; // API fonksiyonu
 import { useTranslation } from 'react-i18next';
+import { Helmet } from 'react-helmet-async'; // Helmet'i içe aktar
 
 // Shadcn UI bileşenleri
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../components/ui/card';
@@ -37,38 +38,41 @@ const ForgotPasswordPage = () => {
         setLoading(true);
         try {
             const response = await forgotPassword(data.email);
-            toast({
-                title: t('password_reset_link_sent_title'),
-                description: response.message || t('password_reset_link_sent_description'),
-                variant: "success",
-            });
-            // Kullanıcıyı bir sonraki adıma yönlendirebilir veya bilgilendirme mesajını gösterebiliriz
-            // Örneğin, giriş sayfasına geri yönlendirme:
-            // navigate('/login');
-        } catch (error) {
-            console.error("Şifre sıfırlama talebi hatası:", error);
-            const errorMessage = error.message || t('password_reset_request_failed_generic');
-            if (error.response?.data?.errors) {
-                Object.entries(error.response.data.errors).forEach(([key, value]) => {
-                    setError(key, {
-                        type: "manual",
-                        message: value[0],
-                    });
+            if (response.success) {
+                toast({
+                    title: t('password_reset_link_sent_title'),
+                    description: t('password_reset_link_sent_description'),
+                    variant: "success",
                 });
+                navigate('/login'); // Link gönderildikten sonra giriş sayfasına yönlendir
             } else {
+                setError("email", { type: "manual", message: response.message || t('password_reset_request_failed_generic') });
                 toast({
                     title: t('password_reset_request_failed_title'),
-                    description: errorMessage,
+                    description: response.message || t('password_reset_request_failed_generic'),
                     variant: "destructive",
                 });
             }
+        } catch (err) {
+            setError("email", { type: "manual", message: err.message || t('password_reset_request_failed_generic') });
+            toast({
+                title: t('password_reset_request_failed_title'),
+                description: err.message || t('password_reset_request_failed_generic'),
+                variant: "destructive",
+            });
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-900 px-4">
+        <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+            <Helmet>
+                <title>{t('forgot_password_title')} - KolayHosting</title>
+                <meta name="description" content={t('forgot_password_description')} />
+                <link rel="canonical" href={`${window.location.origin}/forgot-password`} />
+            </Helmet>
+
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
                     <CardTitle className="text-3xl font-bold">{t('forgot_password_title')}</CardTitle>
@@ -81,6 +85,7 @@ const ForgotPasswordPage = () => {
                             <Input
                                 id="email"
                                 type="email"
+                                className="focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                                 placeholder={t('email_placeholder')}
                                 {...register("email")}
                                 autoFocus

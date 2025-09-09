@@ -314,31 +314,33 @@ const UsersAdmin = () => {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>{t('user_name')}</TableHead>
-                            <TableHead>{t('user_email')}</TableHead>
-                            <TableHead>{t('premium_user')}</TableHead> {/* Yeni sütun */}
-                            <TableHead>{t('user_role')}</TableHead>
-                            <TableHead>{t('user_created_at')}</TableHead>
-                            <TableHead className="text-right">{t('user_actions')}</TableHead>
+                            <TableHead  className="py-3 px-4 text-xs font-semibold uppercase tracking-wider">ID</TableHead>
+                            <TableHead  className="py-3 px-4 text-xs font-semibold uppercase tracking-wider">{t('user_name')}</TableHead>
+                            <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider">{t('user_email')}</TableHead>
+                            <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider">{t('premium_user')}</TableHead> {/* Yeni sütun */}
+                            <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider">{t('user_role')}</TableHead>
+                            <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider">{t('user_created_at')}</TableHead>
+                            <TableHead  className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-right">{t('user_actions')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {users.data.map((user) => (
-                            <TableRow key={user.id}>
-                                <TableCell className="font-medium flex items-center gap-2">
+                            <TableRow key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150" >
+                                <TableCell className="py-3 px-4 text-sm font-medium">{user.id}</TableCell>
+                                <TableCell className="py-3 px-4 text-sm">
                                     {user.name}
                                 </TableCell>
-                                <TableCell>{user.email}</TableCell>
-                                <TableCell>{user.is_premium ? t('yes') : t('no')}</TableCell>
-                                <TableCell>
+                                <TableCell className="py-3 px-4 text-sm">{user.email}</TableCell>
+                                <TableCell className="py-3 px-4 text-sm">{user.is_premium ? t('yes') : t('no')}</TableCell>
+                                <TableCell className="py-3 px-4 text-sm">
                                     <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
                                         {t(user.role)}
                                     </Badge>
                                 </TableCell>
-                                <TableCell>{new Date(user.created_at).toLocaleDateString('tr-TR')}</TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className="py-3 px-4 text-sm">{new Date(user.created_at).toLocaleDateString('tr-TR')}</TableCell>
+                                <TableCell className="py-3 px-4 text-right flex space-x-2 justify-end">
                                     <Button variant="outline" size="sm" className="mr-2" onClick={() => handleEditClick(user)}>
-                                        {t('edit')}
+                                         <Edit className="h-4 w-4" />{t('edit')}
                                     </Button>
                                     <Button
                                         variant="destructive"
@@ -346,7 +348,7 @@ const UsersAdmin = () => {
                                         onClick={() => handleDeleteClick(user)}
                                         disabled={currentUser && currentUser.id === user.id}
                                     >
-                                        {t('delete')}
+                                        <Trash2 className="h-4 w-4" />{t('delete')}
                                     </Button>
                                 </TableCell>
                             </TableRow>

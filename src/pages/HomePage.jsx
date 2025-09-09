@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; //
 import { useToastContext } from '../hooks/toast-utils'; // For toast notifications
 import { CheckCircle2, Star } from 'lucide-react'; // Yeni ikonlar için
 import { useTranslation } from 'react-i18next';
+import { Helmet } from 'react-helmet-async';
 
 export default function HomePage() {
     const [topProviders, setTopProviders] = useState([]);
@@ -48,6 +49,13 @@ export default function HomePage() {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-[calc(100vh-120px)] p-4">
+             {/* Helmet ile sayfa başlığı ve meta açıklaması ekleme */}
+            <Helmet>
+                <title>{t('homepage_title')} - KolayHosting</title>
+                <meta name="description" content={t('homepage_description')} />
+                {/* Canonical URL eklemek isterseniz: */}
+                <link rel="canonical" href="https://www.kolayhosting.com.tr/" />
+            </Helmet>
             {/* Hero Section */}
             <section className="text-center mb-16 max-w-4xl">
                 <h1 className="text-5xl font-extrabold text-gray-900 dark:text-white mb-6 leading-tight">

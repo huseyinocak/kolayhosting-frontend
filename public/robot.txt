@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://api.kolayhosting.com.tr/api/v1/sitemap.xml

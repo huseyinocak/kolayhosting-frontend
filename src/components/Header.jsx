@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth'; // useAuth hook'unu doğru yerden içe aktar
 import { useToastContext } from '../hooks/toast-utils'; // useToastContext hook'unu içe aktar
 import { Menu, Sun, Moon, Globe } from 'lucide-react'; // Hamburger menü ikonu için
@@ -37,6 +37,9 @@ const Header = () => {
     const { toast } = useToastContext(); // useToastContext'ten toast bildirim fonksiyonunu alıyoruz
     const { theme, toggleTheme } = useTheme(); // useTheme hook'unu kullan
     const { t, i18n } = useTranslation(); // t ve i18n objesini al
+    const location = useLocation(); // Mevcut URL konumunu al
+
+
     const handleLogout = async () => {
         await logout(); // useAuth hook'undan gelen logout fonksiyonunu çağır
         toast({ // Toast bildirimi eklendi
@@ -54,6 +57,13 @@ const Header = () => {
             variant: 'success', // Başarılı bir değişiklik bildirimi
         });
     };
+
+    // Linklerin aktif olup olmadığını kontrol eden yardımcı fonksiyon
+    const isActiveLink = (path) => {
+        return location.pathname === path;
+    };
+
+
     return (
         <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-40">
             <nav className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -65,24 +75,24 @@ const Header = () => {
 
                 {/* Navigasyon Linkleri (Masaüstü) */}
                 <div className="hidden md:flex items-center space-x-6">
-                    <Link to="/categories" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-base font-medium">
+                    <Link to="/categories" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/categories') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
                         {t('categories')} {/* Çeviri kullan */}
                     </Link>
-                    <Link to="/plans" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-base font-medium">
+                    <Link to="/plans" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/plans') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
                         {t('plans')} {/* Çeviri kullan */}
                     </Link>
-                    <Link to="/providers" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-base font-medium">
+                    <Link to="/providers" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/providers') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
                         {t('providers')} {/* Çeviri kullan */}
                     </Link>
-                    <Link to="/features" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-base font-medium">
+                    <Link to="/features" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/features') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
                         {t('features')} {/* Çeviri kullan */}
                     </Link>
-                    <Link to="/compare" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-base font-medium">
+                    <Link to="/compare" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/compare') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
                         {t('compare')} {/* Çeviri kullan */}
                     </Link>
                 </div>
                 {/* Kullanıcı Giriş/Kayıt veya Avatar (Masaüstü) */}
-                <div className="hidden md:flex items-center">
+                <div className="hidden md:flex items-center space-x-4">
                     {/* Dil Değiştirme Butonu */}
                     <DropdownMenu>
                         <Tooltip>
@@ -91,18 +101,18 @@ const Header = () => {
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="mr-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 transform hover:scale-110"
                                         aria-label={t('change_language')} // Çeviri kullan
                                     >
-                                        <Globe className="h-6 w-6 text-gray-700 dark:text-gray-300" />
+                                        <Globe className="h-6 w-6" />
+                                        <span className="sr-only">{t('change_language')}</span>
                                     </Button>
                                 </DropdownMenuTrigger>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>{t('change_language')}</p> {/* Çeviri kullan */}
+                                {t('change_language')}{/* Çeviri kullan */}
                             </TooltipContent>
                         </Tooltip>
-                        <DropdownMenuContent className="w-40" align="end">
+                        <DropdownMenuContent className="w-40">
                             <DropdownMenuLabel>{t('language')}</DropdownMenuLabel> {/* Yeni çeviri anahtarı */}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => changeLanguage('tr')}>
@@ -120,7 +130,7 @@ const Header = () => {
                                 variant="ghost"
                                 size="icon"
                                 onClick={toggleTheme}
-                                className="mr-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 transform hover:scale-110" // Daha estetik geçişler
+
                                 aria-label={theme === 'dark' ? t('toggle_light_mode') : t('toggle_dark_mode')} // Çeviri kullan
                             >
                                 {theme === 'dark' ? (
@@ -138,7 +148,7 @@ const Header = () => {
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                                    <Avatar className="h-9 w-9">
+                                    <Avatar className="h-9 w-9  cursor-pointer">
                                         <AvatarImage src={user?.avatar_url || (user?.name ? `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}` : '')} alt={user?.name || t('user')} />
                                         <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
                                     </Avatar>
@@ -196,7 +206,7 @@ const Header = () => {
                 </div>
 
                 {/* Mobil Hamburger Menü */}
-                <div className="md:hidden flex items-center">
+                <div className="md:hidden flex items-center space-x-2">
                     <Sheet>
                         <SheetTrigger asChild>
                             <Button variant="outline" size="icon">
@@ -213,22 +223,22 @@ const Header = () => {
                             </SheetHeader>
                             <nav className="mt-8 flex flex-col space-y-4">
                                 <SheetClose asChild>
-                                    <Link to="/" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('homepage')}</Link>
+                                    <Link to="/" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>{t('homepage')}</Link>
                                 </SheetClose>
                                 <SheetClose asChild>
-                                    <Link to="/categories" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('categories')}</Link>
+                                    <Link to="/categories" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/categories') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>{t('categories')}</Link>
                                 </SheetClose>
                                 <SheetClose asChild>
-                                    <Link to="/plans" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('plans')}</Link>
+                                    <Link to="/plans" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/plans') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>{t('plans')}</Link>
                                 </SheetClose>
                                 <SheetClose asChild>
-                                    <Link to="/providers" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('providers')}</Link>
+                                    <Link to="/providers" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/providers') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>{t('providers')}</Link>
                                 </SheetClose>
                                 <SheetClose asChild>
-                                    <Link to="/features" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('features')}</Link>
+                                    <Link to="/features" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/features') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>{t('features')}</Link>
                                 </SheetClose>
                                 <SheetClose asChild>
-                                    <Link to="/compare" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('compare')}</Link>
+                                    <Link to="/compare" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/compare') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>{t('compare')}</Link>
                                 </SheetClose>
                                 <hr className="my-2 border-gray-200 dark:border-gray-700" />
                                 {isAuthenticated ? (
@@ -238,12 +248,46 @@ const Header = () => {
                                         </SheetClose>
                                         {user?.role === 'admin' && ( // user objesinin varlığını kontrol et
                                             <>
+                                                {/* Yönetim Başlığı */}
+                                                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-4 mb-2">
+                                                    {t('admin_management')}
+                                                </h3>
                                                 <SheetClose asChild>
-                                                    <Link to="/admin" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{t('admin_panel')}</Link>
+                                                    <Link
+                                                        to="/admin"
+                                                        className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/admin') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}
+                                                    >
+                                                        {t('admin_dashboard')}
+                                                    </Link>
                                                 </SheetClose>
                                                 <SheetClose asChild>
-                                                    <Link to="/admin/users" className="text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ml-4">
+                                                    <Link to="/admin/users" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/admin/users') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
                                                         {t('user_management')}
+                                                    </Link>
+                                                </SheetClose>
+                                                <SheetClose asChild>
+                                                    <Link to="/admin/categories" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/admin/categories') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
+                                                        {t('category_management')}
+                                                    </Link>
+                                                </SheetClose>
+                                                <SheetClose asChild>
+                                                    <Link to="/admin/providers" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/admin/providers') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
+                                                        {t('provider_management')}
+                                                    </Link>
+                                                </SheetClose>
+                                                <SheetClose asChild>
+                                                    <Link to="/admin/plans" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/admin/plans') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
+                                                        {t('plan_management')}
+                                                    </Link>
+                                                </SheetClose>
+                                                <SheetClose asChild>
+                                                    <Link to="/admin/features" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/admin/features') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
+                                                        {t('feature_management')}
+                                                    </Link>
+                                                </SheetClose>
+                                                <SheetClose asChild>
+                                                    <Link to="/admin/reviews" className={`text-lg font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isActiveLink('/admin/reviews') ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
+                                                        {t('review_management')}
                                                     </Link>
                                                 </SheetClose>
                                             </>

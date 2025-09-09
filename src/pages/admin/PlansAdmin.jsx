@@ -100,6 +100,7 @@ const PlansAdmin = () => {
     const { toast } = useToastContext();
     const { t } = useTranslation();
 
+
     // Filtreleme ve Sıralama State'leri
     const [inputValue, setInputValue] = useState(''); // Arama inputunun anlık değeri için
     const [search, setSearch] = useState(''); // API'ye gönderilecek arama terimi için (debounced)
@@ -110,6 +111,10 @@ const PlansAdmin = () => {
     const [sortOrder, setSortOrder] = useState('desc');
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(10);
+
+    const [categorySearchTerm, setCategorySearchTerm] = useState('');
+    const [providerSearchTerm, setProviderSearchTerm] = useState('');
+    const [featureSearchTerm, setFeatureSearchTerm] = useState('');
 
     const queryClient = useQueryClient();
 
@@ -177,7 +182,7 @@ const PlansAdmin = () => {
     useEffect(() => {
         if (categoriesData) setCategories(categoriesData.data);
         if (providersData) setProviders(providersData.data);
-        if (featuresData) setFeatures(featuresData);
+        if (featuresData) setFeatures(featuresData.data);
     }, [categoriesData, providersData, featuresData]);
 
 
@@ -235,6 +240,14 @@ const PlansAdmin = () => {
             });
         }
     }, [isDialogOpen, currentPlan, reset]);
+
+    useEffect(() => {
+        if (!isDialogOpen) {
+            setCategorySearchTerm('');
+            setProviderSearchTerm('');
+            setFeatureSearchTerm('');
+        }
+    }, [isDialogOpen]);
 
     const handleAddPlanClick = () => {
         setCurrentPlan(null);
@@ -361,6 +374,27 @@ const PlansAdmin = () => {
         }
     };
 
+    const filteredCategories = React.useMemo(() => {
+        if (!categorySearchTerm) return categories;
+        return categories.filter(cat =>
+            cat.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
+        );
+    }, [categories, categorySearchTerm]);
+
+    const filteredProviders = React.useMemo(() => {
+        if (!providerSearchTerm) return providers;
+        return providers.filter(prov =>
+            prov.name.toLowerCase().includes(providerSearchTerm.toLowerCase())
+        );
+    }, [providers, providerSearchTerm]);
+
+    const filteredFeatures = React.useMemo(() => {
+        if (!featureSearchTerm) return features;
+        return features.filter(feature =>
+            feature.name.toLowerCase().includes(featureSearchTerm.toLowerCase())
+        );
+    }, [features, featureSearchTerm]);
+
     const isLoadingCombined = isLoadingPlans || isLoadingCategories || isLoadingProviders || isLoadingFeatures;
     const isErrorCombined = isErrorPlans || isErrorCategories || isErrorProviders || isErrorFeatures;
     const combinedError = plansError || categoriesError || providersError || featuresError;
@@ -449,7 +483,7 @@ const PlansAdmin = () => {
                                                 <SelectItem value="all">{t('all_statuses')}</SelectItem>
                                                 <SelectItem value="active">{t('active')}</SelectItem>
                                                 <SelectItem value="inactive">{t('inactive')}</SelectItem>
-                                                <SelectItem value="deprecated">{t('deprecated')}</SelectItem>
+                                                <SelectItem value="pending">{t('pending')}</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     )}
@@ -466,13 +500,25 @@ const PlansAdmin = () => {
                                             <SelectTrigger>
                                                 <SelectValue placeholder={t('select_provider')} />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="max-h-60 overflow-y-auto"> {/* Scrollable content */}
+                                                <div className="px-2 py-1 sticky top-0 bg-white dark:bg-gray-800 z-10">
+                                                    <Input
+                                                        placeholder={t('search_providers')}
+                                                        value={providerSearchTerm}
+                                                        onChange={(e) => setProviderSearchTerm(e.target.value)}
+                                                        className="w-full focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                                    />
+                                                </div>
                                                 <SelectItem value="0">{t('all_providers')}</SelectItem>
-                                                {providers.map(provider => (
-                                                    <SelectItem key={provider.id} value={String(provider.id)}>
-                                                        {provider.name}
-                                                    </SelectItem>
-                                                ))}
+                                                {filteredProviders.length > 0 ? (
+                                                    filteredProviders.map(provider => (
+                                                        <SelectItem key={provider.id} value={String(provider.id)}>
+                                                            {provider.name}
+                                                        </SelectItem>
+                                                    ))
+                                                ) : (
+                                                    <div className="p-2 text-center text-gray-500">{t('no_providers_found')}</div>
+                                                )}
                                             </SelectContent>
                                         </Select>
                                     )}
@@ -489,13 +535,25 @@ const PlansAdmin = () => {
                                             <SelectTrigger>
                                                 <SelectValue placeholder={t('select_category')} />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="max-h-60 overflow-y-auto"> {/* Scrollable content */}
+                                                <div className="px-2 py-1 sticky top-0 bg-white dark:bg-gray-800 z-10">
+                                                    <Input
+                                                        placeholder={t('search_categories')}
+                                                        value={categorySearchTerm}
+                                                        onChange={(e) => setCategorySearchTerm(e.target.value)}
+                                                        className="w-full focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                                    />
+                                                </div>
                                                 <SelectItem value="0">{t('all_categories')}</SelectItem>
-                                                {categories.map(category => (
-                                                    <SelectItem key={category.id} value={String(category.id)}>
-                                                        {category.name}
-                                                    </SelectItem>
-                                                ))}
+                                                {filteredCategories.length > 0 ? (
+                                                    filteredCategories.map(category => (
+                                                        <SelectItem key={category.id} value={String(category.id)}>
+                                                            {category.name}
+                                                        </SelectItem>
+                                                    ))
+                                                ) : (
+                                                    <div className="p-2 text-center text-gray-500">{t('no_categories_found')}</div>
+                                                )}
                                             </SelectContent>
                                         </Select>
                                     )}
@@ -506,8 +564,16 @@ const PlansAdmin = () => {
                             {/* Plan Özellikleri Yönetimi */}
                             <div className="space-y-4 border p-4 rounded-md">
                                 <h3 className="text-lg font-semibold">{t('plan_features')}</h3>
-                                {features.length > 0 ? (
-                                    features.map((feature) => (
+                                <div className="px-2 py-1">
+                                    <Input
+                                        placeholder={t('search_features')}
+                                        value={featureSearchTerm}
+                                        onChange={(e) => setFeatureSearchTerm(e.target.value)}
+                                        className="w-full focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                    />
+                                </div>
+                                {filteredFeatures.length > 0 ? (
+                                    filteredFeatures.map((feature) => (
                                         <div key={feature.id} className="flex items-center space-x-2">
                                             <Checkbox
                                                 id={`feature-${feature.id}`}
@@ -523,7 +589,7 @@ const PlansAdmin = () => {
                                                     placeholder={t('value')}
                                                     value={watchedFeatures.find(f => f.feature_id === feature.id)?.value || ''}
                                                     onChange={(e) => handleFeatureValueChange(feature.id, e.target.value)}
-                                                    className="w-1/3"
+                                                    className="w-1/3 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                                                 />
                                             )}
                                         </div>
@@ -570,26 +636,50 @@ const PlansAdmin = () => {
                         <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder={t('filter_by_provider')} />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                            <div className="px-2 py-1 sticky top-0 bg-white dark:bg-gray-800 z-10">
+                                <Input
+                                    placeholder={t('search_providers')}
+                                    value={providerSearchTerm}
+                                    onChange={(e) => setProviderSearchTerm(e.target.value)}
+                                    className="w-full focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                />
+                            </div>
                             <SelectItem value="0">{t('all_providers')}</SelectItem>
-                            {providers.map(provider => (
-                                <SelectItem key={provider.id} value={String(provider.id)}>
-                                    {provider.name}
-                                </SelectItem>
-                            ))}
+                            {filteredProviders.length > 0 ? (
+                                filteredProviders.map(provider => (
+                                    <SelectItem key={provider.id} value={String(provider.id)}>
+                                        {provider.name}
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <div className="p-2 text-center text-gray-500">{t('no_providers_found')}</div>
+                            )}
                         </SelectContent>
                     </Select>
                     <Select onValueChange={(value) => { setFilterCategory(value); setPage(1); }} value={filterCategory}>
                         <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder={t('filter_by_category')} />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                            <div className="px-2 py-1 sticky top-0 bg-white dark:bg-gray-800 z-10">
+                                <Input
+                                    placeholder={t('search_categories')}
+                                    value={categorySearchTerm}
+                                    onChange={(e) => setCategorySearchTerm(e.target.value)}
+                                    className="w-full focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                />
+                            </div>
                             <SelectItem value="0">{t('all_categories')}</SelectItem>
-                            {categories.map(category => (
-                                <SelectItem key={category.id} value={String(category.id)}>
-                                    {category.name}
-                                </SelectItem>
-                            ))}
+                            {filteredCategories.length > 0 ? (
+                                filteredCategories.map(category => (
+                                    <SelectItem key={category.id} value={String(category.id)}>
+                                        {category.name}
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <div className="p-2 text-center text-gray-500">{t('no_categories_found')}</div>
+                            )}
                         </SelectContent>
                     </Select>
                     <Select onValueChange={(value) => { setSortBy(value); setPage(1); }} value={sortBy}>

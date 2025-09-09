@@ -10,6 +10,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../..
 import { Button } from '../../components/ui/button';
 import { Server, MessageCircle, LayoutDashboard, List, Package, Star, Tag, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+// Recharts bileşenleri
+import {
+    ResponsiveContainer,
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend
+} from 'recharts';
 
 const AdminDashboard = () => {
     const { toast } = useToastContext();
@@ -69,6 +80,14 @@ const AdminDashboard = () => {
         },
         // Daha fazla bölüm eklenebilir
     ];
+
+    // Grafik verilerini hazırlama
+    const chartData = [
+        { name: t('total_users'), value: stats?.total_users || 0 },
+        { name: t('total_providers'), value: stats?.total_providers || 0 },
+        { name: t('total_plans'), value: stats?.total_plans || 0 },
+    ];
+
     // Yükleme durumu için iskelet görünümü
     if (isLoading) {
         return (
@@ -155,6 +174,7 @@ const AdminDashboard = () => {
                     </CardContent>
                 </Card>
             </div>
+
             <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md">
                 <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{t('quick_links')}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -177,7 +197,34 @@ const AdminDashboard = () => {
                     ))}
                 </div>
             </div>
-
+            {/* İstatistik Grafiği */}
+            <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md mt-10">
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{t('overall_statistics')}</h2>
+                <div className="h-64"> {/* Grafiğin yüksekliğini ayarlayın */}
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                            data={chartData}
+                            margin={{
+                                top: 5,
+                                right: 30,
+                                left: 20,
+                                bottom: 5,
+                            }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                            <XAxis dataKey="name" stroke="#6b7280" />
+                            <YAxis stroke="#6b7280" />
+                            <Tooltip
+                                contentStyle={{ backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '8px', padding: '10px' }}
+                                labelStyle={{ color: '#333', fontWeight: 'bold' }}
+                                itemStyle={{ color: '#333' }}
+                            />
+                            <Legend />
+                            <Bar dataKey="value" fill="#3b82f6" name={t('count')} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
         </div>
     );
 };

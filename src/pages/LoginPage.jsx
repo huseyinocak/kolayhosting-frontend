@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form'; // useForm hook'unu içe aktar
 import { zodResolver } from '@hookform/resolvers/zod'; // Zod resolver'ı içe aktar
@@ -13,6 +13,8 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { resendVerificationLink } from '@/api/auth';
+import { Eye, EyeOff } from 'lucide-react'; // Eye ve EyeOff ikonlarını import et
+import { Helmet } from 'react-helmet-async';
 
 
 
@@ -21,8 +23,8 @@ const LoginPage = () => {
     const navigate = useNavigate();
     const { toast } = useToastContext(); // useToastContext'ten toast fonksiyonunu alıyoruz
     const { t } = useTranslation(); // t fonksiyonunu al
-    const [showVerificationWarning, setShowVerificationWarning] = React.useState(false); // E-posta doğrulama uyarısını kontrol etmek için
-
+    const [showVerificationWarning, setShowVerificationWarning] = useState(false); // E-posta doğrulama uyarısını kontrol etmek için
+    const [showPassword, setShowPassword] = useState(false); // Şifre görünürlüğünü kontrol etmek için
     // Zod ile giriş formunun şemasını tanımla
     const loginSchema = z.object({
         email: z.email({ message: t('email_invalid') }),
@@ -54,7 +56,7 @@ const LoginPage = () => {
                 variant: 'success', // Başarılı bir giriş bildirimi
             });
             navigate('/');
-        }catch (error) {
+        } catch (error) {
             console.error("Giriş hatası:", error);
             const errorMessage = error.message || t('login_failed_generic');
 
@@ -104,6 +106,11 @@ const LoginPage = () => {
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+            <Helmet>
+                <title>{t('login')} - KolayHosting</title>
+                <meta name="description" content={t('login_description')} />
+                <link rel="canonical" href={`${window.location.origin}/login`} />
+            </Helmet>
             <Card className="w-[350px] shadow-lg rounded-lg">
                 <CardHeader className="text-center">
                     <CardTitle className="text-2xl font-bold">{t('login')}</CardTitle> {/* Çeviri kullan */}
@@ -117,19 +124,36 @@ const LoginPage = () => {
                                 id="email"
                                 type="email"
                                 placeholder={t('email_placeholder')} // Çeviri kullan
+                                className="focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                                 {...register("email")}
                                 autoFocus // Otomatik odaklanma için
                             />
                             {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
                         </div>
-                        <div className="grid w-full items-center gap-1.5">
+                        <div className="grid w-full items-center gap-1.5 relative">
                             <Label htmlFor="password">{t('password')}</Label> {/* Çeviri kullan */}
                             <Input
                                 id="password"
-                                type="password"
+                                type={showPassword ? "text" : "password"} // Şifre görünürlüğüne göre tipi değiştir
                                 placeholder={t('password_placeholder')} // Çeviri kullan
+                                 className="focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                                 {...register("password")}
                             />
+                            {/* Şifre göster/gizle butonu */}
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 mt-3" // Konumlandırma
+                                onClick={() => setShowPassword((prev) => !prev)}
+                            >
+                                {showPassword ? (
+                                    <EyeOff className="h-5 w-5 text-gray-500" />
+                                ) : (
+                                    <Eye className="h-5 w-5 text-gray-500" />
+                                )}
+                                <span className="sr-only">{showPassword ? 'Şifreyi Gizle' : 'Şifreyi Göster'}</span>
+                            </Button>
                             {errors.password && <p className="text-red-500 text-sm">{errors.password.message}</p>}
                         </div>
                         <Button type="submit" className="w-full" disabled={loading}>

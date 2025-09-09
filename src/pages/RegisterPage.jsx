@@ -11,6 +11,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Label } from '../components/ui/label';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
+import { Eye, EyeOff } from 'lucide-react'; // Eye ve EyeOff ikonlarını import et
 
 // Zod ile kayıt formunun şemasını tanımla
 const registerSchema = z.object({
@@ -28,6 +29,8 @@ const RegisterPage = () => {
     const navigate = useNavigate();
     const { toast } = useToastContext(); // useToastContext'ten toast bildirim fonksiyonunu alıyoruz
     const [registrationSuccess, setRegistrationSuccess] = useState(false); // Kayıt başarısını takip etmek için state
+    const [showPassword, setShowPassword] = useState(false); // Şifre görünürlüğünü kontrol etmek için
+    const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false); // Şifre tekrarı görünürlüğünü kontrol etmek için
 
 
     // useForm hook'unu başlat
@@ -92,59 +95,92 @@ const RegisterPage = () => {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                     {registrationSuccess ? (
+                    {registrationSuccess ? (
                         <div className="text-center text-green-600 dark:text-green-400 mb-4">
                             <p className="text-lg font-semibold">Kayıt Başarılı!</p>
                             <p>Hesabınız oluşturuldu. Lütfen e-posta adresinizi doğrulamak için gelen kutunuzu kontrol edin.</p>
                             <Button onClick={() => navigate('/login')} className="mt-4">Giriş Yap</Button>
                         </div>
                     ) : (
-                    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
-                        <div className="grid w-full items-center gap-1.5">
-                            <Label htmlFor="name">Adınız</Label>
-                            <Input
-                                id="name"
-                                type="text"
-                                placeholder="Adınız Soyadınız"
-                                {...register("name")} // Input'u forma kaydet
-                                autoFocus // Otomatik odaklanma için 
-                            />
-                            {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
-                        </div>
-                        <div className="grid w-full items-center gap-1.5">
-                            <Label htmlFor="email">E-posta</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                placeholder="eposta@example.com"
-                                {...register("email")} // Input'u forma kaydet
-                            />
-                            {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
-                        </div>
-                        <div className="grid w-full items-center gap-1.5">
-                            <Label htmlFor="password">Şifre</Label>
-                            <Input
-                                id="password"
-                                type="password"
-                                placeholder="Şifreniz"
-                                {...register("password")} // Input'u forma kaydet
-                            />
-                            {errors.password && <p className="text-red-500 text-sm">{errors.password.message}</p>}
-                        </div>
-                        <div className="grid w-full items-center gap-1.5">
-                            <Label htmlFor="passwordConfirmation">Şifre Tekrar</Label>
-                            <Input
-                                type="password"
-                                id="passwordConfirmation"
-                                placeholder="Şifrenizi tekrar girin"
-                                {...register("passwordConfirmation")} // Input'u forma kaydet
-                            />
-                            {errors.passwordConfirmation && <p className="text-red-500 text-sm">{errors.passwordConfirmation.message}</p>}
-                        </div>
-                        <Button type="submit" className="w-full" disabled={loading}>
-                            {loading ? 'Kaydolunuyor...' : 'Kaydol'}
-                        </Button>
-                    </form>
+                        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
+                            <div className="grid w-full items-center gap-1.5">
+                                <Label htmlFor="name">Adınız</Label>
+                                <Input
+                                    id="name"
+                                    type="text"
+                                    className="focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                    placeholder="Adınız Soyadınız"
+                                    {...register("name")} // Input'u forma kaydet
+                                    autoFocus // Otomatik odaklanma için 
+                                />
+                                {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
+                            </div>
+                            <div className="grid w-full items-center gap-1.5">
+                                <Label htmlFor="email">E-posta</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    className="focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                    placeholder="eposta@example.com"
+                                    {...register("email")} // Input'u forma kaydet
+                                />
+                                {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
+                            </div>
+                            <div className="grid w-full items-center gap-1.5 relative">
+                                <Label htmlFor="password">Şifre</Label>
+                                <Input
+                                    id="password"
+                                    type={showPassword ? "text" : "password"}
+                                    className="focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                    placeholder="Şifreniz"
+                                    {...register("password")} // Input'u forma kaydet
+                                />
+                                {/* Şifre göster/gizle butonu */}
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 mt-3" // Konumlandırma
+                                    onClick={() => setShowPassword((prev) => !prev)}
+                                >
+                                    {showPassword ? (
+                                        <EyeOff className="h-5 w-5 text-gray-500" />
+                                    ) : (
+                                        <Eye className="h-5 w-5 text-gray-500" />
+                                    )}
+                                    <span className="sr-only">{showPassword ? 'Şifreyi Gizle' : 'Şifreyi Göster'}</span>
+                                </Button>
+                                {errors.password && <p className="text-red-500 text-sm">{errors.password.message}</p>}
+                            </div>
+                            <div className="grid w-full items-center gap-1.5 relative">
+                                <Label htmlFor="passwordConfirmation">Şifre Tekrar</Label>
+                                <Input
+                                    type={showPasswordConfirmation ? "text" : "password"}
+                                    id="passwordConfirmation"
+                                    placeholder="Şifrenizi tekrar girin"
+                                    className="focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                    {...register("passwordConfirmation")} // Input'u forma kaydet
+                                />
+                                {/* Şifre tekrarı göster/gizle butonu */}
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 mt-3" // Konumlandırma
+                                    onClick={() => setShowPasswordConfirmation((prev) => !prev)}
+                                >
+                                    {showPasswordConfirmation ? (
+                                        <EyeOff className="h-5 w-5 text-gray-500" />
+                                    ) : (
+                                        <Eye className="h-5 w-5 text-gray-500" />
+                                    )}
+                                    <span className="sr-only">{showPasswordConfirmation ? 'Şifreyi Gizle' : 'Şifreyi Göster'}</span>
+                                </Button>
+                            </div>
+                            <Button type="submit" className="w-full" disabled={loading}>
+                                {loading ? 'Kaydolunuyor...' : 'Kaydol'}
+                            </Button>
+                        </form>
                     )}
                 </CardContent>
                 <CardFooter className="text-center flex justify-center text-sm">

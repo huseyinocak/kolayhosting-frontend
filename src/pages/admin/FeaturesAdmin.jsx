@@ -232,63 +232,31 @@ const FeaturesAdmin = () => {
     }
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            <h1 className="text-4xl font-bold text-center text-gray-900 dark:text-white mb-10">{t('admin_features_page_title')}</h1>
+        <div className="container mx-auto px-4 py-4">
+            <h1 className="text-4xl font-bold text-center text-gray-900 dark:text-white mb-4">{t('admin_features_page_title')}</h1>
 
             <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button onClick={handleAddFeatureClick}>
-                            <PlusCircle className="mr-2 h-5 w-5" /> {t('add_new_feature')}
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>{currentFeature ? t('edit_feature_title') : t('create_feature')}</DialogTitle>
-                            <DialogDescription>
-                                {currentFeature ? t('edit_feature_description') : t('add_new_feature_description')}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="name">{t('feature_name')}</Label>
-                                <Input id="name" {...register("name")} />
-                                {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="unit">{t('feature_unit')}</Label>
-                                <Input id="unit" {...register("unit")} placeholder={t('feature_unit_placeholder')} />
-                                {errors.unit && <p className="text-red-500 text-sm">{errors.unit.message}</p>}
-                            </div>
-                            <DialogFooter>
-                                <Button type="submit" disabled={isSubmitting}>
-                                    {isSubmitting ? (currentFeature ? t('updating') : t('creating')) : (currentFeature ? t('save') : t('create'))}
-                                </Button>
-                            </DialogFooter>
-                        </form>
-                    </DialogContent>
-                </Dialog>
-
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 flex-wrap gap-2">
                     <Input
                         placeholder={t('search_feature')}
                         value={inputValue}
                         onChange={(e) => {
                             setInputValue(e.target.value);
                         }}
-                        className="max-w-sm"
+                        className="max-w-sm focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     />
                     <Select onValueChange={(value) => { setSortBy(value); setPage(1); }} value={sortBy}>
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-[180px] focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                             <SelectValue placeholder={t('sort_by')} />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="name">{t('name_ascending')}</SelectItem>
+                            <SelectItem value="type">{t('type')}</SelectItem>
                             <SelectItem value="created_at">{t('created_at_descending')}</SelectItem>
                         </SelectContent>
                     </Select>
                     <Select onValueChange={(value) => { setSortOrder(value); setPage(1); }} value={sortOrder}>
-                        <SelectTrigger className="w-[120px]">
+                        <SelectTrigger className="w-[120px] focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                             <SelectValue placeholder={t('sort_direction')} />
                         </SelectTrigger>
                         <SelectContent>
@@ -297,7 +265,7 @@ const FeaturesAdmin = () => {
                         </SelectContent>
                     </Select>
                     <Select onValueChange={(value) => { setPerPage(Number(value)); setPage(1); }} value={String(perPage)}>
-                        <SelectTrigger className="w-[100px]">
+                        <SelectTrigger className="w-[100px] focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                             <SelectValue placeholder={t('page_size')} />
                         </SelectTrigger>
                         <SelectContent>
@@ -307,6 +275,9 @@ const FeaturesAdmin = () => {
                         </SelectContent>
                     </Select>
                 </div>
+                <Button onClick={handleAddFeatureClick}>
+                    <PlusCircle className="mr-2 h-5 w-5" /> {t('add_new_feature')}
+                </Button>
             </div>
 
             {features.length > 0 ? (
@@ -396,6 +367,33 @@ const FeaturesAdmin = () => {
                             {t('delete')}
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>{currentFeature ? t('edit_feature_title') : t('create_feature')}</DialogTitle>
+                        <DialogDescription>
+                            {currentFeature ? t('edit_feature_description') : t('add_new_feature_description')}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="name">{t('feature_name')}</Label>
+                            <Input id="name" {...register("name")} />
+                            {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="unit">{t('feature_unit')}</Label>
+                            <Input id="unit" {...register("unit")} placeholder={t('feature_unit_placeholder')} />
+                            {errors.unit && <p className="text-red-500 text-sm">{errors.unit.message}</p>}
+                        </div>
+                        <DialogFooter>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? (currentFeature ? t('updating') : t('creating')) : (currentFeature ? t('save') : t('create'))}
+                            </Button>
+                        </DialogFooter>
+                    </form>
                 </DialogContent>
             </Dialog>
         </div>

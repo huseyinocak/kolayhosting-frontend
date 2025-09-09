@@ -1,14 +1,17 @@
 // src/pages/ProviderDetailPage.jsx
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getProviderById, getProviderPlans, getProviderReviews } from '../api/providers';
-import { createReview } from '../api/reviews'; // Yorum oluşturma API fonksiyonunu içe aktar
+import { createReview, deleteReview } from '../api/reviews'; // Yorum oluşturma ve silme API fonksiyonlarını içe aktar
 import { useAuth } from '../hooks/useAuth'; // Kullanıcının oturum durumunu kontrol etmek için
 import { useToastContext } from '../hooks/toast-utils';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // useQuery ve useQueryClient'ı içe aktar
+import { Helmet } from 'react-helmet-async'; // Helmet'i içe aktar
+import { useTranslation } from 'react-i18next'; // i18n için useTranslation
 
 // Shadcn UI bileşenleri
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -27,252 +30,314 @@ import {
     SelectTrigger,
     SelectValue,
 } from '../components/ui/select';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '../components/ui/dialog'; // Dialog bileşenleri için
 
-// Yorum formu şeması
-const reviewSchema = z.object({
-    title: z.string().min(3, { message: "Başlık en az 3 karakter olmalıdır." }).max(100, { message: "Başlık en fazla 100 karakter olmalıdır." }),
-    content: z.string().min(10, { message: "Yorum içeriği en az 10 karakter olmalıdır." }).max(500, { message: "Yorum içeriği en fazla 500 karakter olmalıdır." }),
-    rating: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 1 && parseFloat(val) <= 5, {
-        message: "Derecelendirme 1 ile 5 arasında bir sayı olmalıdır.",
-    }),
-});
+// Yorum derecelendirme ikonları ve silme ikonu
+import { Star, CheckCircle, Trash2 } from 'lucide-react'; // Trash2 eklendi
 
 const ProviderDetailPage = () => {
     const { id } = useParams(); // URL'den sağlayıcı ID'sini al
-    const [provider, setProvider] = useState(null);
-    const [plans, setPlans] = useState([]);
-    const [reviews, setReviews] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const { user, isAuthenticated } = useAuth(); // Kullanıcı bilgisi ve oturum durumu
-    const { toast } = useToastContext();
     const navigate = useNavigate();
+    const { toast } = useToastContext();
+    const { user, isAuthenticated } = useAuth(); // Kullanıcının oturum durumunu al
+    const { t } = useTranslation();
+
+    const queryClient = useQueryClient(); // QueryClient instance'ını al
+
+    // Silme işlemi için state'ler
+    const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+    const [reviewToDelete, setReviewToDelete] = useState(null);
+
+    // Sağlayıcı detaylarını çek
+    const { data: provider, isLoading: isLoadingProvider, isError: isErrorProvider, error: providerError } = useQuery({
+        queryKey: ['provider', id],
+        queryFn: () => getProviderById(id),
+        staleTime: 1000 * 60 * 5, // 5 dakika boyunca "stale" olmayacak
+        enabled: !!id, // ID varsa sorguyu etkinleştir
+        onError: (err) => {
+            toast({
+                title: "Hata",
+                description: err.message || "Sağlayıcı detayları yüklenirken bir sorun oluştu.",
+                variant: "destructive",
+            });
+        },
+    });
+
+    // Sağlayıcının planlarını çek
+    const { data: plans, isLoading: isLoadingPlans } = useQuery({
+        queryKey: ['providerPlans', id],
+        queryFn: () => getProviderPlans(id),
+        staleTime: 1000 * 60 * 5,
+        onError: (err) => {
+            toast({
+                title: "Hata",
+                description: err.message || "Sağlayıcı planları yüklenirken bir sorun oluştu.",
+                variant: "destructive",
+            });
+        },
+    });
+
+    // Sağlayıcının yorumlarını çek
+    const { data: reviews, isLoading: isLoadingReviews } = useQuery({
+        queryKey: ['providerReviews', id], // Yorumlar için ayrı bir query key
+        queryFn: () => getProviderReviews(id),
+        staleTime: 1000 * 60, // Yorumlar daha sık güncellenebilir
+        onError: (err) => {
+            toast({
+                title: "Hata",
+                description: err.message || "Sağlayıcı yorumları yüklenirken bir sorun oluştu.",
+                variant: "destructive",
+            });
+        },
+    });
+
+    // Yorum formu doğrulama şeması
+    const reviewSchema = z.object({
+        title: z.string().min(3, "Başlık en az 3 karakter olmalıdır.").max(100, "Başlık en fazla 100 karakter olmalıdır."),
+        content: z.string().min(10, "Yorum içeriği en az 10 karakter olmalıdır.").max(500, "Yorum içeriği en fazla 500 karakter olmalıdır."),
+        rating: z.string().refine(val => ['1', '2', '3', '4', '5'].includes(val), {
+            message: "Lütfen 1 ile 5 arasında bir derecelendirme seçin."
+        }),
+    });
 
     const {
         register,
         handleSubmit,
-        control,
         reset,
+        control,
         formState: { errors, isSubmitting },
     } = useForm({
         resolver: zodResolver(reviewSchema),
-    });
-
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const providerData = await getProviderById(id);
-                setProvider(providerData);
-
-                const providerPlans = await getProviderPlans(id);
-                setPlans(providerPlans);
-
-                const providerReviews = await getProviderReviews(id);
-                setReviews(providerReviews);
-
-            } catch (err) {
-                setError(err.message || 'Sağlayıcı bilgileri yüklenirken bir hata oluştu.');
-                toast({
-                    title: "Hata",
-                    description: "Sağlayıcı bilgileri yüklenirken bir sorun oluştu.",
-                    variant: "destructive",
-                });
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, [id, toast]);
+        defaultValues: {
+            title: '',
+            content: '',
+            rating: 5,
+        },
+    });;
 
     const onSubmitReview = async (data) => {
-        if (!isAuthenticated) {
-            toast({
-                title: "Yetkisiz İşlem",
-                description: "Yorum yapmak için giriş yapmalısınız.",
-                variant: "destructive",
-            });
-            return;
-        }
-
         try {
-            const reviewData = {
+            const reviewPayload = {
                 ...data,
-                rating: parseFloat(data.rating), // String'i sayıya çevir
                 provider_id: provider.id,
-                user_id: user.id, // Oturum açmış kullanıcının ID'si
+                user_id: user.id, // AuthContext'ten gelen user.id
+                status: 'pending', // Varsayılan olarak beklemede
             };
-            await createReview(reviewData);
+            await createReview(reviewPayload); // API çağrısı
             toast({
                 title: "Yorum Gönderildi",
-                description: "Yorumunuz başarıyla eklendi.",
-                variant: "success", // Başarılı bir gönderim bildirimi  
+                description: "Yorumunuz başarıyla gönderildi ve onay bekliyor.",
+                variant: "success",
             });
             reset(); // Formu sıfırla
-            // Yorumlar listesini yeniden çek
-            const updatedReviews = await getProviderReviews(id);
-            setReviews(updatedReviews);
+            // Yorum listesini yeniden çekmek için ilgili query'yi geçersiz kıl
+            queryClient.invalidateQueries(['providerReviews', id]);
         } catch (err) {
-            const errorMessage = err.response?.data?.message || 'Yorum gönderilirken bir hata oluştu.';
             toast({
-                title: "Yorum Hatası",
-                description: errorMessage,
+                title: "Yorum Gönderme Hatası",
+                description: err.response?.data?.message || err.message || "Yorum gönderilirken bir sorun oluştu.",
                 variant: "destructive",
             });
         }
     };
 
-    if (loading) {
+    // Yorum silme işlemini başlatan fonksiyon
+    const handleDeleteReview = (reviewId) => {
+        setReviewToDelete(reviewId);
+        setIsConfirmDialogOpen(true);
+    };
+
+    // Yorum silme işlemini onaylayan fonksiyon
+    const confirmDeleteReview = async () => {
+        if (!reviewToDelete) return;
+        try {
+            await deleteReview(reviewToDelete);
+            toast({
+                title: "Yorum Silindi",
+                description: "Yorum başarıyla silindi.",
+                variant: "success",
+            });
+            queryClient.invalidateQueries(['providerReviews', id]); // Yorum listesini yeniden çek
+            setIsConfirmDialogOpen(false);
+            setReviewToDelete(null);
+        } catch (err) {
+            toast({
+                title: "Silme Hatası",
+                description: err.response?.data?.message || err.message || "Yorum silinirken bir sorun oluştu.",
+                variant: "destructive",
+            });
+        }
+    };
+
+
+    if (isLoadingProvider || isLoadingPlans || isLoadingReviews) {
         return (
             <div className="container mx-auto px-4 py-8">
-                <Skeleton className="h-10 w-1/2 mb-6" />
+                <Skeleton className="h-10 w-3/4 mb-6" />
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2">
-                        <Skeleton className="h-48 w-full mb-8" />
-                        <Skeleton className="h-32 w-full mb-8" />
-                        <Skeleton className="h-64 w-full" />
+                    <div className="lg:col-span-2 space-y-6">
+                        <Skeleton className="h-48 w-full" />
+                        <Skeleton className="h-32 w-full" />
                     </div>
-                    <div className="lg:col-span-1">
-                        <Skeleton className="h-96 w-full" />
+                    <div className="space-y-6">
+                        <Skeleton className="h-48 w-full" />
+                        <Skeleton className="h-64 w-full" />
                     </div>
                 </div>
             </div>
         );
     }
 
-    if (error) {
+    if (isErrorProvider) {
         return (
-            <div className="container mx-auto px-4 py-8 text-center text-red-500 text-lg">
-                Hata: {error}
-                <Button onClick={() => navigate('/')} className="mt-4">Ana Sayfaya Dön</Button>
+            <div className="container mx-auto px-4 py-8 text-center text-red-500">
+                <p>Sağlayıcı yüklenirken bir hata oluştu: {providerError.message}</p>
+                <Button onClick={() => navigate('/providers')} className="mt-4">Sağlayıcılara Geri Dön</Button>
             </div>
         );
     }
 
     if (!provider) {
         return (
-            <div className="container mx-auto px-4 py-8 text-center text-gray-600 dark:text-gray-400 text-lg">
-                Sağlayıcı bulunamadı.
+            <div className="container mx-auto px-4 py-8 text-center text-gray-600 dark:text-gray-400">
+                <p>Sağlayıcı bulunamadı.</p>
                 <Button onClick={() => navigate('/providers')} className="mt-4">Sağlayıcılara Geri Dön</Button>
             </div>
         );
     }
 
+    // Schema.org JSON-LD verisi
+    const providerSchema = {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": provider.name,
+        "url": `${window.location.origin}/providers/${provider.id}`,
+        "logo": provider.logo_url || `https://placehold.co/120x120/aabbcc/ffffff?text=${provider.name.charAt(0)}`,
+        "description": provider.description || t('no_description_for_provider'),
+        "sameAs": [
+            provider.website_url // Sağlayıcının kendi web sitesi URL'si
+        ],
+        "aggregateRating": provider.average_rating > 0 ? {
+            "@type": "AggregateRating",
+            "ratingValue": provider.average_rating.toFixed(1),
+            "reviewCount": provider.review_count,
+            "bestRating": "5",
+            "worstRating": "1"
+        } : undefined,
+        "offers": plans?.length > 0 ? plans.map(plan => ({
+            "@type": "Offer",
+            "name": plan.name,
+            "url": `${window.location.origin}/plans/${plan.id}`,
+            "priceCurrency": plan.currency,
+            "price": plan.price,
+            "itemCondition": "https://schema.org/NewCondition",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+                "@type": "Organization",
+                "name": provider.name
+            }
+        })) : undefined
+    };
+
     return (
+
         <div className="container mx-auto px-4 py-8">
-            <div className="grid grid-cols-1 lg:grid-cols gap-8">
-                {/* Sağlayıcı Detayları */}
-                <div className="lg:col-span-2">
-                    <Card className="mb-8">
-                        <CardHeader className="flex flex-col md:flex-row items-center space-x-4 p-6">
-                            <Avatar className="h-24 w-24 flex-shrink-0">
-                                <AvatarImage
-                                    src={provider.logo_url || `https://placehold.co/96x96/e2e8f0/000000?text=${provider.name.charAt(0)}`}
-                                    alt={provider.name}
-                                    onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/96x96/e2e8f0/000000?text=${provider.name.charAt(0)}`; }}
-                                />
-                                <AvatarFallback>{provider.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col text-center md:text-left mt-4 md:mt-0">
-                                <CardTitle className="text-3xl font-bold">{provider.name}</CardTitle>
-                                <CardDescription className="flex flex-col md:flex-row items-center mt-2">
-                                    <Badge variant="secondary" className="mr-2 mb-2 md:mb-0">
-                                        Ort. Derecelendirme: {
-                                            // average_rating'i sayıya dönüştür ve geçerli bir sayı ise toFixed kullan
-                                            // Aksi takdirde '0.0' göster
-                                            !isNaN(parseFloat(provider.average_rating))
-                                                ? parseFloat(provider.average_rating).toFixed(1)
-                                                : '0.0'
-                                        } / 5
-                                    </Badge>
-                                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                                        ({provider.review_count || 0} yorum)
-                                    </span>
-                                </CardDescription>
-                                {provider.affiliate_url ? (
-                                    <>
-                                        <a
-                                            href={provider.affiliate_url} // Affiliate URL varsa onu kullan, yoksa normal site URL'si
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="w-full mt-4"
-                                            onClick={() => {
-                                                if (window.gtag) {
-                                                    window.gtag('event', 'affiliate_click', {
-                                                        provider_id: provider.id,
-                                                        provider_name: provider.name,
-                                                        provider_slug: provider.slug,
-                                                        affiliate_url: provider.affiliate_url,
-                                                    });
-                                                }
-                                            }}
-                                        >
-                                            <Button className="w-full md:w-auto px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:scale-105">
-                                                Resmi Web Sitesini Ziyaret Et
-                                            </Button>
-                                        </a>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
-                                            Bu bir ortaklık bağlantısıdır. Bu bağlantıdan yapılan alışverişlerde KolayHosting komisyon kazanabilir.
-                                        </p>
-                                    </>
-                                ) : (
-                                    <>
-                                        <a
-                                            href={provider.website_url} // Affiliate URL varsa onu kullan, yoksa normal site URL'si
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="w-full mt-4"
-                                            onClick={() => {
-                                                if (window.gtag) {
-                                                    window.gtag('event', 'affiliate_click', {
-                                                        provider_id: provider.id,
-                                                        provider_name: provider.name,
-                                                        provider_slug: provider.slug,
-                                                        affiliate_url: provider.affiliate_url,
-                                                    });
-                                                }
-                                            }}
-                                        >
-                                            <Button className="w-full md:w-auto px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:scale-105">
-                                                Resmi Web Sitesini Ziyaret Et
-                                            </Button>
-                                        </a>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
-                                            Bu sağlayıcı ile ortaklık bağlantımız bulunmamaktadır. Normal web sitesinden ziyaret edebilirsiniz.
-                                        </p>
-                                    </>
+            <Helmet>
+                <script>
 
-                                )
-                                }
-                            </div>
+                    {console.log(JSON.stringify(providerSchema))}
+                </script>
+                <title>{provider.name} {t('provider_details_page_title_suffix', { defaultValue: 'Hosting Sağlayıcısı Detayları' })} - KolayHosting</title>
+                <meta name="description" content={provider.description || t('provider_detail_page_description', { providerName: provider.name })} />
+                <link rel="canonical" href={`${window.location.origin}/providers/${id}`} />
+                {provider && (
+                    <script type="application/ld+json">
+
+                        {JSON.stringify(providerSchema)}
+                    </script>
+                )}
+            </Helmet>
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-4">
+                    <Avatar className="h-20 w-20">
+                        <AvatarImage
+                            src={provider.logo_url}
+                            alt={provider.name}
+                            onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/80x80/aabbcc/ffffff?text=${provider.name.charAt(0)}`; }}
+                        />
+                        <AvatarFallback>{provider.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <h1 className="text-4xl font-bold text-gray-900 dark:text-white">{provider.name}</h1>
+                </div>
+                {provider.average_rating > 0 && (
+                    <Badge variant="secondary" className="text-lg px-3 py-1 flex items-center">
+                        <Star className="h-5 w-5 text-yellow-400 fill-current mr-1" />
+                        {provider.average_rating.toFixed(1)}
+                    </Badge>
+                )}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Sağlayıcı Bilgileri */}
+                <div className="lg:col-span-2 space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Hakkında</CardTitle>
+                            <CardDescription>{provider.description}</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <h3 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Hakkında</h3>
-                            <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-6">
-                                {provider.description || 'Bu sağlayıcı hakkında detaylı bilgi bulunmamaktadır.'}
+                        <CardContent className="space-y-4">
+                            <p className="text-gray-700 dark:text-gray-300">
+                                **Web Sitesi:** <a href={provider.website_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{provider.website_url}</a>
                             </p>
+                            {provider.contact_email && (
+                                <p className="text-gray-700 dark:text-gray-300">
+                                    **E-posta:** <a href={`mailto:${provider.contact_email}`} className="text-blue-600 hover:underline">{provider.contact_email}</a>
+                                </p>
+                            )}
+                            {provider.phone_number && (
+                                <p className="text-gray-700 dark:text-gray-300">
+                                    **Telefon:** <a href={`tel:${provider.phone_number}`} className="text-blue-600 hover:underline">{provider.phone_number}</a>
+                                </p>
+                            )}
+                            {provider.address && (
+                                <p className="text-gray-700 dark:text-gray-300">
+                                    **Adres:** {provider.address}
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
 
-                            <Separator className="my-6" />
-
-                            <h3 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Planları</h3>
-                            {plans.length > 0 ? (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Planları ({plans?.length || 0})</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {plans && plans.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {plans.map(plan => (
-                                        <Card key={plan.id} className="p-4 hover:shadow-md transition-shadow">
-                                            <CardTitle className="text-lg mb-1">{plan.name}</CardTitle>
-                                            <CardDescription className="text-sm">
-                                                {plan.category?.name && (
-                                                    <Badge variant="secondary" className="mr-2">
-                                                        {plan.category.name}
-                                                    </Badge>
-                                                )}
-                                                <span className="font-bold text-blue-600 dark:text-blue-400">
-                                                    {plan.price} {plan.currency}
-                                                </span>
-                                            </CardDescription>
-                                            <Button asChild variant="link" className="p-0 h-auto mt-2">
-                                                <Link to={`/plans/${plan.id}`}>Detayları Gör</Link>
+                                        <Card key={plan.id} className="p-4 hover:shadow-lg transition-shadow duration-300">
+                                            <CardTitle className="text-lg mb-2">
+                                                <Link to={`/plans/${plan.id}`} className="hover:underline">{plan.name}</Link>
+                                            </CardTitle>
+                                            <CardDescription className="mb-2">{plan.category?.name}</CardDescription>
+                                            <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                                                {plan.price}₺ <span className="text-sm font-normal text-gray-500">/ {plan.billing_cycle}</span>
+                                            </p>
+                                            {plan.discount_percentage > 0 && (
+                                                <Badge variant="secondary" className="mt-1">
+                                                    %{plan.discount_percentage} İndirim
+                                                </Badge>
+                                            )}
+                                            <Button asChild className="mt-4 w-full">
+                                                <Link to={`/plans/${plan.id}`}>Detayları Görüntüle</Link>
                                             </Button>
                                         </Card>
                                     ))}
@@ -282,61 +347,83 @@ const ProviderDetailPage = () => {
                             )}
                         </CardContent>
                     </Card>
+                </div>
 
-                    {/* Yorumlar Bölümü */}
+                {/* Yorumlar ve Yorum Ekleme Formu */}
+                <div className="lg:col-span-1 space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-2xl font-bold">Kullanıcı Yorumları ({reviews.length})</CardTitle>
+                            <CardTitle>Kullanıcı Yorumları ({reviews?.length || 0})</CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            {reviews.length > 0 ? (
-                                <div className="space-y-6">
-                                    {reviews.map(review => (
+                        <CardContent className="space-y-4">
+                            {reviews && reviews.length > 0 ? (
+                                reviews.map(review => {
+                                    // review.user'ın null veya undefined olup olmadığını kontrol et
+                                    const userName = review.user?.name || 'Anonim Kullanıcı';
+                                    const userAvatar = review.user?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${userName}`;
+
+                                    return (
                                         <div key={review.id} className="border-b pb-4 last:border-b-0 last:pb-0">
-                                            <div className="flex items-center mb-2">
-                                                <Avatar className="h-9 w-9 mr-3">
-                                                    <AvatarImage src={review.user?.avatar_url || `https://placehold.co/80x80/e2e8f0/000000?text=${review.user?.name?.charAt(0) || 'U'}`} alt={review.user?.name || 'Anonim'} />
-                                                    <AvatarFallback>{review.user?.name?.charAt(0) || 'U'}</AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    <p className="font-semibold text-gray-800 dark:text-gray-200">{review.user?.name || 'Anonim Kullanıcı'}</p>
-                                                    <div className="flex items-center text-sm text-yellow-500">
-                                                        {[...Array(review.rating)].map((_, i) => (
-                                                            <svg key={i} className="h-4 w-4 fill-current" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279L12 18.896l-7.416 3.817 1.48-8.279L.001 9.306l8.332-1.151L12 .587z" /></svg>
-                                                        ))}
-                                                        {[...Array(5 - review.rating)].map((_, i) => (
-                                                            <svg key={i + review.rating} className="h-4 w-4 fill-current text-gray-300" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279L12 18.896l-7.416 3.817 1.48-8.279L.001 9.306l8.332-1.151L12 .587z" /></svg>
-                                                        ))}
-                                                        <span className="ml-2 text-gray-600 dark:text-gray-400">({review.rating}/5)</span>
-                                                    </div>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center">
+                                                    {/* Avatar ve Kullanıcı Adı */}
+                                                    <img
+                                                        src={userAvatar}
+                                                        alt={userName}
+                                                        className="w-8 h-8 rounded-full mr-3 object-cover"
+                                                        onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/32x32/aabbcc/ffffff?text=${userName.charAt(0)}`; }}
+                                                    />
+                                                    <span className="font-semibold text-gray-800 dark:text-gray-200">{userName}</span>
                                                 </div>
+                                                {/* Silme Butonu - Sadece kendi yorumuysa veya adminse göster */}
+                                                {isAuthenticated && user && (user.id === review.user?.id || user.role === 'admin') && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleDeleteReview(review.id)}
+                                                        className="text-red-500 hover:text-red-700"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                        <span className="sr-only">Yorumu Sil</span>
+                                                    </Button>
+                                                )}
                                             </div>
-                                            <p className="font-semibold text-gray-800 dark:text-gray-200 mb-1">{review.title}</p>
-                                            <p className="text-gray-700 dark:text-gray-300 text-sm">{review.content}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                                                {new Date(review.created_at).toLocaleDateString('tr-TR', {
-                                                    year: 'numeric',
-                                                    month: 'long',
-                                                    day: 'numeric'
-                                                })}
-                                            </p>
+                                            <div className="flex items-center mb-2">
+                                                {/* Derecelendirme Yıldızları */}
+                                                {[...Array(5)].map((_, i) => (
+                                                    <Star
+                                                        key={i}
+                                                        className={`h-4 w-4 ${i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300 dark:text-gray-600'}`}
+                                                        fill={i < review.rating ? 'currentColor' : 'none'}
+                                                    />
+                                                ))}
+                                                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                                                    {new Date(review.published_at).toLocaleDateString('tr-TR')}
+                                                </span>
+                                            </div>
+                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{review.title}</h3>
+                                            <p className="text-gray-700 dark:text-gray-300 text-sm mt-1">{review.content}</p>
                                         </div>
-                                    ))}
-                                </div>
+                                    );
+                                })
                             ) : (
                                 <p className="text-center text-gray-600 dark:text-gray-400">Bu sağlayıcı için henüz yorum bulunmamaktadır.</p>
                             )}
+                        </CardContent>
+                    </Card>
 
-                            <Separator className="my-6" />
-
-                            <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Yorum Yapın</h3>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Yorum Yap</CardTitle>
+                            <CardDescription>Bu sağlayıcı hakkındaki düşüncelerinizi paylaşın.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
                             {isAuthenticated ? (
                                 <form onSubmit={handleSubmit(onSubmitReview)} className="space-y-4">
                                     <div className="grid w-full items-center gap-1.5">
                                         <Label htmlFor="title">Yorum Başlığı</Label>
                                         <Input
                                             id="title"
-                                            type="text"
                                             placeholder="Yorumunuz için kısa bir başlık"
                                             {...register("title")}
                                         />
@@ -346,8 +433,9 @@ const ProviderDetailPage = () => {
                                         <Label htmlFor="content">Yorumunuz</Label>
                                         <Textarea
                                             id="content"
-                                            placeholder="Detaylı yorumunuzu buraya yazın..."
+                                            placeholder="Sağlayıcı hakkındaki detaylı yorumunuzu buraya yazın..."
                                             {...register("content")}
+                                            rows={4}
                                         />
                                         {errors.content && <p className="text-red-500 text-sm">{errors.content.message}</p>}
                                     </div>
@@ -358,7 +446,7 @@ const ProviderDetailPage = () => {
                                             control={control}
                                             render={({ field }) => (
                                                 <Select onValueChange={field.onChange} value={field.value}>
-                                                    <SelectTrigger className="w-full">
+                                                    <SelectTrigger>
                                                         <SelectValue placeholder="Derecelendirme Seçin" />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -382,6 +470,26 @@ const ProviderDetailPage = () => {
                     </Card>
                 </div>
             </div>
+
+            {/* Silme Onay Diyaloğu */}
+            <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Yorumu Silme Onayı</DialogTitle>
+                        <DialogDescription>
+                            Bu yorumu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+                            İptal
+                        </Button>
+                        <Button variant="destructive" onClick={confirmDeleteReview}>
+                            Sil
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

@@ -10,11 +10,15 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge'; // Özellik tipleri için
 import { useComparison } from '@/hooks/useComparison';
+import { Frown } from 'lucide-react'; // Frown ikonu eklendi
+import { Helmet } from 'react-helmet-async';
+import { useTranslation } from 'react-i18next';
 
 const ComparisonPage = () => {
     const { plansToCompare, removePlanFromCompare, clearComparison } = useComparison();
     const { toast } = useToastContext(); // toast fonksiyonunu kullanmak için
-    const navigate = useNavigate();
+    const navigate = useNavigate();    
+    const { t } = useTranslation();
 
     // Karşılaştırma için özelliklerin listesini oluşturacağız
     // Tüm seçili planlardaki benzersiz özellikleri topluyoruz
@@ -53,18 +57,32 @@ const ComparisonPage = () => {
 
     if (plansToCompare.length === 0) {
         return (
-            <div className="container mx-auto px-4 py-8 text-center">
-                <h1 className="text-4xl font-bold mb-6 text-gray-900 dark:text-white">Plan Karşılaştırma</h1>
-                <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
-                    Karşılaştırılacak plan seçmediniz. Lütfen <Link to="/plans" className="text-blue-600 hover:underline">planlar sayfasına</Link> geri dönerek karşılaştırmak istediğiniz planları seçin.
+            <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[60vh]">
+                <Frown className="h-20 w-20 mb-6 text-gray-400 dark:text-gray-500" />
+                <p className="text-2xl font-semibold mb-3 text-gray-800 dark:text-gray-200">
+                    Henüz karşılaştırılacak bir plan seçmediniz.
                 </p>
-                <Button onClick={() => navigate('/plans')}>Planlara Göz At</Button>
+                <p className="text-lg text-gray-600 dark:text-gray-400 mb-6 text-center">
+                    Karşılaştırmak istediğiniz planları <Link to="/plans" className="text-blue-600 hover:underline">Planlar</Link> sayfasından seçebilirsiniz.
+                </p>
+                <Button onClick={() => navigate('/plans')} className="bg-blue-600 hover:bg-blue-700 text-white">
+                    Planları Keşfet
+                </Button>
             </div>
         );
     }
 
+     // Dinamik sayfa başlığı ve meta açıklaması
+    const pageTitle = t('comparison_page_title', { defaultValue: 'Hosting Planlarını Karşılaştır' });
+    const pageDescription = t('comparison_page_description', { defaultValue: 'KolayHosting ile farklı hosting planlarını detaylı özelliklerine, fiyatlarına ve derecelendirmelerine göre karşılaştırın. İhtiyaçlarınıza en uygun çözümü bulun.' });
+
     return (
         <div className="container mx-auto px-4 py-8">
+            <Helmet>
+                <title>{pageTitle} - KolayHosting</title>
+                <meta name="description" content={pageDescription} />
+                <link rel="canonical" href={`${window.location.origin}/compare`} />
+            </Helmet>
             <h1 className="text-4xl font-bold text-center text-gray-900 dark:text-white mb-10">Plan Karşılaştırma</h1>
 
             <div className="flex justify-end mb-6 space-x-4">

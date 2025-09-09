@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Ana Sayfa -->
+  <url>
+    <loc>https://www.kolayhosting.com.tr/</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Planlar Sayfası -->
+  <url>
+    <loc>https://www.kolayhosting.com.tr/plans</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Sağlayıcılar Sayfası -->
+  <url>
+    <loc>https://www.kolayhosting.com.tr/providers</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Kategoriler Sayfası -->
+  <url>
+    <loc>https://www.kolayhosting.com.tr/categories</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Özellikler Sayfası -->
+  <url>
+    <loc>https://www.kolayhosting.com.tr/features</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Karşılaştırma Sayfası -->
+  <url>
+    <loc>https://www.kolayhosting.com.tr/compare</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Gizlilik Politikası -->
+  <url>
+    <loc>https://www.kolayhosting.com.tr/privacy-policy</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Kullanım Koşulları -->
+  <url>
+    <loc>https://www.kolayhosting.com.tr/terms-of-service</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Çerez Politikası -->
+  <url>
+    <loc>https://www.kolayhosting.com.tr/cookie-policy</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Dinamik İçerik Örnekleri (API'den çekilerek otomatik oluşturulmalı) -->
+  <!-- Örnek Plan Detay Sayfası URL'leri -->
+  <!--
+  <url>
+    <loc>https://www.kolayhosting.com.tr/plans/plan-id-1</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.kolayhosting.com.tr/plans/plan-id-2</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>0.8</priority>
+  </url>
+  -->
+
+  <!-- Örnek Sağlayıcı Detay Sayfası URL'leri -->
+  <!--
+  <url>
+    <loc>https://www.kolayhosting.com.tr/providers/provider-id-1</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.kolayhosting.com.tr/providers/provider-id-2</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>0.8</priority>
+  </url>
+  -->
+
+  <!-- Örnek Kategoriye Ait Planlar Sayfası URL'leri -->
+  <!--
+  <url>
+    <loc>https://www.kolayhosting.com.tr/categories/category-id-1</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.kolayhosting.com.tr/categories/category-id-2</loc>
+    <lastmod>2025-07-28</lastmod>
+    <priority>0.8</priority>
+  </url>
+  -->
+
+</urlset>

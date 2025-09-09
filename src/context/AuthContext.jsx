@@ -9,6 +9,7 @@ export const AuthProvider = ({ children }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
     const toastContext = useToastContext();
     const toast = toastContext?.toast;
@@ -31,10 +32,18 @@ export const AuthProvider = ({ children }) => {
                 // Eğer user objesi bir 'data' anahtarı altında dönüyorsa onu kullan, aksi halde doğrudan objeyi kullan.
                 setUser(userData.data || userData);
                 setIsAuthenticated(true);
+                
             } else {
                 setUser(null);
                 setIsAuthenticated(false);
             }
+
+            // Onboarding modalını gösterme kontrolü
+                const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
+                if (!hasSeenOnboarding) {
+                    setShowOnboardingModal(true);
+                }
+
         } catch (err) {
             setError(err.message || 'Kullanıcı bilgileri yüklenirken bir hata oluştu.');
             setUser(null);
@@ -80,6 +89,13 @@ export const AuthProvider = ({ children }) => {
                     variant: "success", // Başarılı bir giriş bildirimi
                 });
             }
+
+            // Başarılı giriş sonrası onboarding kontrolü
+            const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
+            if (!hasSeenOnboarding) {
+                setShowOnboardingModal(true);
+            }
+
         } catch (err) {
             const errorMessage = err.response?.data?.message || err.message || 'Giriş başarısız oldu.';
             setError(errorMessage);
@@ -111,6 +127,8 @@ export const AuthProvider = ({ children }) => {
                     variant: "success", // Başarılı bir kayıt bildirimi
                 });
             }
+            // Başarılı kayıt sonrası onboarding modalını göster
+            setShowOnboardingModal(true);
         } catch (err) {
             const errorMessage = err.response?.data?.message || err.message || 'Kayıt başarısız oldu.';
             setError(errorMessage);
@@ -158,7 +176,12 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
         }
     };
-    
+     // Onboarding modalını kapatma ve işaretleme fonksiyonu
+    const handleOnboardingClose = useCallback(() => {
+        setShowOnboardingModal(false);
+        localStorage.setItem('hasSeenOnboarding', 'true'); // Kullanıcının modalı gördüğünü işaretle
+    }, []);
+
     const value = {
         user,
         isAuthenticated,
@@ -167,6 +190,8 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
+        showOnboardingModal, // Yeni eklenen değer
+        handleOnboardingClose, // Yeni eklenen fonksiyon
     };
 
     return (

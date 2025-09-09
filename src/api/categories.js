@@ -40,6 +40,20 @@ export const getAllCategories = async (params = {}) => {
  * @param {string|number} categoryId - Kategori ID'si veya slug'ı
  * @returns {Promise<Array>} Kategoriye ait plan listesi
  */
+export const getCategoryById = async (categoryId) => {
+    try {
+        const response = await categoriesApi.get(`/categories/${categoryId}`);
+        return response.data.data; // data, meta, links objelerini içerecek
+    } catch (error) {
+        throw new Error(`Kategori ID ${categoryId} için kategoriler getirilirken hata:`, error.response?.data || error.message);
+    }
+};
+
+/**
+ * Belirli bir kategoriye ait planları getirir.
+ * @param {string|number} categoryId - Kategori ID'si veya slug'ı
+ * @returns {Promise<Array>} Kategoriye ait plan listesi
+ */
 export const getPlansByCategory = async (categoryId) => {
     try {
         const response = await categoriesApi.get(`/categories/${categoryId}/plans`);
