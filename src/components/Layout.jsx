@@ -7,6 +7,7 @@ import AIChatbot from "./AIChatbot";
 import { useEffect, useState } from "react";
 import OnboardingModal from "./OnboardingModal";
 import { useAuth } from "../hooks/useAuth"; // useAuth hook'unu import et
+import CompareBar from "./CompareBar";
 
 export default function Layout() {
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
@@ -100,6 +101,7 @@ export default function Layout() {
           userName={user?.name}
         />
       )}
+      <CompareBar /> {/* CompareBar bileşenini ekle */}
     </div>
   );
 }

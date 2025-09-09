@@ -3,6 +3,14 @@ import { useForm, Controller } from "react-hook-form"; // Controller'ı da içe 
 import { zodResolver } from "@hookform/resolvers/zod"; // Zod resolver'ı içe aktar
 import * as z from "zod"; // Zod kütüphanesini içe aktar
 import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationLink,
+} from "@/components/ui/pagination";
+import {
   getAllProviders,
   createProvider,
   updateProvider,
@@ -49,18 +57,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+const normalizeUrl = z.preprocess((val) => {
+  const s = (val ?? "").toString().trim();
+  if (!s) return "";
+  return /^https?:\/\//i.test(s) ? s : `https://${s}`;
+}, z.string().url({ message: "Geçerli bir URL giriniz." }));
+
 // Zod ile sağlayıcı formunun şemasını tanımla
 const providerSchema = z.object({
   name: z
     .string()
     .min(2, { message: "Sağlayıcı adı en az 2 karakter olmalıdır." }),
-  website_url: z
-    .url({ message: "Geçerli bir URL giriniz." })
-    .optional()
-    .or(z.literal("")), // Boş stringi de kabul et
+  website_url: z.union([z.literal(""), normalizeUrl]).optional(), // Boş stringi de kabul et
+  affiliate_url: z.union([z.literal(""), normalizeUrl]).optional(),
   description: z.string().optional(),
   average_rating: z.preprocess(
-    (val) => (val === "" ? undefined : Number(val)), // Boş stringi undefined olarak işle
+    (val) => {
+      if (val === "" || val === undefined || val === null) return undefined;
+      const num = typeof val === "string" ? Number(val.trim()) : Number(val);
+      return Number.isFinite(num) ? num : undefined;
+    }, // Boş stringi undefined olarak işle
     z
       .number()
       .min(0, { message: "Derecelendirme sıfırdan küçük olamaz." })
@@ -68,7 +84,7 @@ const providerSchema = z.object({
       .optional()
   ),
   // Yeni logo dosyası için alan
-  logoFile: z
+  logo: z
     .any()
     .refine((file) => {
       if (file && file.length > 0) {
@@ -132,13 +148,13 @@ const ProvidersAdmin = () => {
     setValue, // Form alanlarına değer atamak için
   } = useForm({
     resolver: zodResolver(providerSchema),
+    shouldUnregister: true, // Kayıtlı olmayan alanları temizle
     defaultValues: {
       name: "",
       description: "",
       website_url: "",
       affiliate_url: "",
-      average_rating: "",
-      logoFile: null, // Yeni logo dosyası alanı
+      logo: null, // Yeni logo dosyası alanı
     },
   });
   // Arama inputu için debounce efekti
@@ -247,7 +263,7 @@ const ProvidersAdmin = () => {
       }
 
       setLogoPreview(URL.createObjectURL(file));
-      setValue("logo", file); // Form verisine dosyayı ekle
+      setValue("logo", file, { shouldValidate: true }); // Form verisine dosyayı ekle
     } else {
       setLogoPreview(null);
       setValue("logo", null);
@@ -265,10 +281,14 @@ const ProvidersAdmin = () => {
     // Logo dosyası varsa ekle
     if (data.logo instanceof File) {
       formData.append("logo", data.logo);
+    } else if (data.logo?.[0] instanceof File) {
+      // RHF FileList senaryosu
+      formData.append("logo", data.logo[0]);
     }
 
     try {
       if (currentProvider) {
+        formData.append("_method", "PUT");
         await updateProvider(currentProvider.id, formData);
         toast({
           title: t("provider_updated_successfully"),
@@ -367,7 +387,14 @@ const ProvidersAdmin = () => {
                   : t("add_new_provider_description")}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
+            <form
+              id="providerForm"
+              onSubmit={handleSubmit(onSubmit, (errs) => {
+                console.log("Validation errors:", errs);
+              })}
+              className="grid gap-4 py-4"
+              noValidate
+            >
               <div className="grid gap-2">
                 <Label htmlFor="name">{t("provider_name")}</Label>
                 <Input id="name" {...register("name")} />
@@ -388,7 +415,7 @@ const ProvidersAdmin = () => {
                 <Label htmlFor="website_url">{t("website_url")}</Label>
                 <Input
                   id="website_url"
-                  type="url"
+                  type="text"
                   {...register("website_url")}
                   placeholder="https://www.example.com"
                 />
@@ -402,7 +429,7 @@ const ProvidersAdmin = () => {
                 <Label htmlFor="affiliate_url">{t("affiliate_url")}</Label>
                 <Input
                   id="affiliate_url"
-                  type="url"
+                  type="text"
                   {...register("affiliate_url")}
                   placeholder="https://affiliate.example.com"
                 />
@@ -418,6 +445,7 @@ const ProvidersAdmin = () => {
                   id="logo"
                   type="file"
                   onChange={handleLogoChange}
+                  {...register("logo")}
                   accept=".jpg,.jpeg,.png,.webp"
                 />
                 {logoPreview && (
@@ -451,7 +479,11 @@ const ProvidersAdmin = () => {
                 )}
               </div>
               <DialogFooter>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  form="providerForm"
+                >
                   {isSubmitting
                     ? currentProvider
                       ? t("updating")

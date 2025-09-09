@@ -1,0 +1,42 @@
+/* Minimal, framework-agnostic stiller. Tailwind yoksa da çalışır. */ 
+:root { --kh-bg: #fff; --kh-fg: #111; --kh-muted:#f4f4f5; --kh-border:#e5e7eb; --kh-pri:#2563eb; --kh-pri-fg:#fff; }
+@media (prefers-color-scheme: dark) { :root { --kh-bg:#0b0d11; --kh-fg:#f3f4f6; --kh-muted:#161a22; --kh-border:#1f2633; --kh-pri:#3b82f6; --kh-pri-fg:#fff; } }
+
+.kh-card{background:var(--kh-bg);color:var(--kh-fg);border:1px solid var(--kh-border);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.kh-card-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.kh-card-brand{display:flex;align-items:center;gap:10px}
+.kh-card-logo{width:36px;height:36px;border-radius:8px;object-fit:contain;background:var(--kh-muted)}
+.kh-card-logo--placeholder{width:36px;height:36px;border-radius:8px;background:var(--kh-muted)}
+.kh-card-title{margin:0;font-size:16px;font-weight:700}
+.kh-card-sub{margin:2px 0 0 0;opacity:.7;font-size:12px}
+.kh-chip-row{display:flex;flex-wrap:wrap;gap:8px}
+.kh-chip{font-size:12px;padding:6px 8px;background:var(--kh-muted);border-radius:999px}
+.kh-rozet-row{display:flex;flex-wrap:wrap;gap:6px}
+.kh-rozet{font-size:11px;padding:4px 8px;border:1px dashed var(--kh-border);border-radius:999px;opacity:.85}
+.kh-card-actions{display:flex;gap:8px;margin-top:4px}
+.kh-btn{height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--kh-border);background:var(--kh-bg);color:var(--kh-fg);cursor:pointer}
+.kh-btn:hover{filter:brightness(1.05)}
+.kh-btn-primary{background:var(--kh-pri);color:var(--kh-pri-fg);border-color:transparent}
+.kh-btn-ghost{background:transparent}
+
+.kh-price-badge{display:flex;gap:8px;align-items:center}
+.kh-badge{font-size:12px;border-radius:999px;padding:6px 10px;border:1px solid var(--kh-border)}
+.kh-badge-primary{background:var(--kh-pri);color:var(--kh-pri-fg);border-color:transparent}
+.kh-badge-soft{background:var(--kh-muted)}
+
+.kh-comparebar{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;width:min(1100px,92vw);z-index:40}
+.kh-comparebar-inner{display:flex;gap:8px;align-items:center;background:var(--kh-bg);border:1px solid var(--kh-border);border-radius:16px;padding:10px;box-shadow:0 10px 30px rgba(0,0,0,.12)}
+.kh-comparebar-list{display:flex;gap:8px;overflow:auto;scrollbar-width:thin;max-width:70%}
+.kh-compare-pill{display:flex;align-items:center;gap:8px;background:var(--kh-muted);padding:6px 8px;border-radius:14px}
+.kh-pill-logo{width:20px;height:20px;border-radius:6px;background:var(--kh-border);object-fit:contain}
+.kh-pill-title{font-size:13px;white-space:nowrap}
+.kh-pill-remove{background:transparent;border:none;font-size:16px;cursor:pointer;opacity:.7}
+.kh-comparebar-actions{margin-left:auto;display:flex;gap:8px}
+
+.kh-skel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.kh-skel-card{height:160px;border-radius:16px;background:linear-gradient(90deg, var(--kh-muted), #e6e8ec, var(--kh-muted));background-size:200% 100%;animation:kh-shine 1.25s linear infinite;border:1px solid var(--kh-border)}
+@keyframes kh-shine{0%{background-position:200% 0}100%{background-position:0 0}}
+
+.kh-empty{border:1px dashed var(--kh-border);border-radius:16px;padding:24px;text-align:center}
+.kh-empty-title{margin:0 0 8px 0}
+.kh-empty-list{margin:0 auto 8px;display:inline-block;text-align:left;opacity:.8}
