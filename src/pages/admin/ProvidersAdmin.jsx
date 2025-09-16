@@ -56,6 +56,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import BulkImportDialog from "@/components/admin/BulkImportDialog";
 
 const normalizeUrl = z.preprocess((val) => {
   const s = (val ?? "").toString().trim();
@@ -119,6 +120,7 @@ const ProvidersAdmin = () => {
   const [sortOrder, setSortOrder] = useState("desc");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
+  const [importOpen, setImportOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -368,135 +370,141 @@ const ProvidersAdmin = () => {
       </h1>
 
       <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={handleAddProviderClick}>
-              <PlusCircle className="mr-2 h-5 w-5" /> {t("add_new_provider")}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {currentProvider
-                  ? t("edit_provider_title")
-                  : t("create_provider")}
-              </DialogTitle>
-              <DialogDescription>
-                {currentProvider
-                  ? t("edit_provider_description")
-                  : t("add_new_provider_description")}
-              </DialogDescription>
-            </DialogHeader>
-            <form
-              id="providerForm"
-              onSubmit={handleSubmit(onSubmit, (errs) => {
-                console.log("Validation errors:", errs);
-              })}
-              className="grid gap-4 py-4"
-              noValidate
-            >
-              <div className="grid gap-2">
-                <Label htmlFor="name">{t("provider_name")}</Label>
-                <Input id="name" {...register("name")} />
-                {errors.name && (
-                  <p className="text-red-500 text-sm">{errors.name.message}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">{t("description")}</Label>
-                <Textarea id="description" {...register("description")} />
-                {errors.description && (
-                  <p className="text-red-500 text-sm">
-                    {errors.description.message}
-                  </p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="website_url">{t("website_url")}</Label>
-                <Input
-                  id="website_url"
-                  type="text"
-                  {...register("website_url")}
-                  placeholder="https://www.example.com"
-                />
-                {errors.website_url && (
-                  <p className="text-red-500 text-sm">
-                    {errors.website_url.message}
-                  </p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="affiliate_url">{t("affiliate_url")}</Label>
-                <Input
-                  id="affiliate_url"
-                  type="text"
-                  {...register("affiliate_url")}
-                  placeholder="https://affiliate.example.com"
-                />
-                {errors.affiliate_url && (
-                  <p className="text-red-500 text-sm">
-                    {errors.affiliate_url.message}
-                  </p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="logo">{t("logo")}</Label>
-                <Input
-                  id="logo"
-                  type="file"
-                  onChange={handleLogoChange}
-                  {...register("logo")}
-                  accept=".jpg,.jpeg,.png,.webp"
-                />
-                {logoPreview && (
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {t("logo_preview")}
+        <div className="flex items-center space-x-2 gap-2">
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={handleAddProviderClick}>
+                <PlusCircle className="mr-2 h-5 w-5" /> {t("add_new_provider")}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {currentProvider
+                    ? t("edit_provider_title")
+                    : t("create_provider")}
+                </DialogTitle>
+                <DialogDescription>
+                  {currentProvider
+                    ? t("edit_provider_description")
+                    : t("add_new_provider_description")}
+                </DialogDescription>
+              </DialogHeader>
+              <form
+                id="providerForm"
+                onSubmit={handleSubmit(onSubmit, (errs) => {
+                  console.log("Validation errors:", errs);
+                })}
+                className="grid gap-4 py-4"
+                noValidate
+              >
+                <div className="grid gap-2">
+                  <Label htmlFor="name">{t("provider_name")}</Label>
+                  <Input id="name" {...register("name")} />
+                  {errors.name && (
+                    <p className="text-red-500 text-sm">
+                      {errors.name.message}
                     </p>
-                    <img
-                      src={logoPreview}
-                      alt="Logo Preview"
-                      className="mt-1 h-20 w-20 object-contain rounded-md border"
-                    />
-                  </div>
-                )}
-                {!logoPreview && currentProvider?.logo_url && (
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {t("current_logo")}
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="description">{t("description")}</Label>
+                  <Textarea id="description" {...register("description")} />
+                  {errors.description && (
+                    <p className="text-red-500 text-sm">
+                      {errors.description.message}
                     </p>
-                    <img
-                      src={currentProvider.logo_url}
-                      alt="Current Logo"
-                      className="mt-1 h-20 w-20 object-contain rounded-md border"
-                    />
-                  </div>
-                )}
-                {!logoPreview && !currentProvider?.logo_url && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t("no_logo")}
-                  </p>
-                )}
-              </div>
-              <DialogFooter>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  form="providerForm"
-                >
-                  {isSubmitting
-                    ? currentProvider
-                      ? t("updating")
-                      : t("creating")
-                    : currentProvider
-                    ? t("save")
-                    : t("create")}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="website_url">{t("website_url")}</Label>
+                  <Input
+                    id="website_url"
+                    type="text"
+                    {...register("website_url")}
+                    placeholder="https://www.example.com"
+                  />
+                  {errors.website_url && (
+                    <p className="text-red-500 text-sm">
+                      {errors.website_url.message}
+                    </p>
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="affiliate_url">{t("affiliate_url")}</Label>
+                  <Input
+                    id="affiliate_url"
+                    type="text"
+                    {...register("affiliate_url")}
+                    placeholder="https://affiliate.example.com"
+                  />
+                  {errors.affiliate_url && (
+                    <p className="text-red-500 text-sm">
+                      {errors.affiliate_url.message}
+                    </p>
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="logo">{t("logo")}</Label>
+                  <Input
+                    id="logo"
+                    type="file"
+                    onChange={handleLogoChange}
+                    {...register("logo")}
+                    accept=".jpg,.jpeg,.png,.webp"
+                  />
+                  {logoPreview && (
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {t("logo_preview")}
+                      </p>
+                      <img
+                        src={logoPreview}
+                        alt="Logo Preview"
+                        className="mt-1 h-20 w-20 object-contain rounded-md border"
+                      />
+                    </div>
+                  )}
+                  {!logoPreview && currentProvider?.logo_url && (
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {t("current_logo")}
+                      </p>
+                      <img
+                        src={currentProvider.logo_url}
+                        alt="Current Logo"
+                        className="mt-1 h-20 w-20 object-contain rounded-md border"
+                      />
+                    </div>
+                  )}
+                  {!logoPreview && !currentProvider?.logo_url && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {t("no_logo")}
+                    </p>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    form="providerForm"
+                  >
+                    {isSubmitting
+                      ? currentProvider
+                        ? t("updating")
+                        : t("creating")
+                      : currentProvider
+                      ? t("save")
+                      : t("create")}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+          <Button variant="secondary" onClick={() => setImportOpen(true)}>
+            İçe Aktar
+          </Button>
+        </div>
         <div className="flex items-center space-x-2">
           <Input
             placeholder={t("search_provider")}
@@ -733,6 +741,19 @@ const ProvidersAdmin = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <BulkImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        entity="providers"
+        fields={[
+          { key: "name", label: "Ad", required: true },
+          { key: "website_url", label: "Website URL" },
+          { key: "logo_url", label: "Logo URL" },
+          { key: "description", label: "Açıklama" },
+          { key: "affiliate_url", label: "Affiliate URL" },
+        ]}
+        onImported={() => refetch?.()}
+      />
     </div>
   );
 };

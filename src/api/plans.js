@@ -1,14 +1,15 @@
-import axios from 'axios';
-import { setupAuthInterceptor } from '../utils/axiosInterceptors'; // Yeni import
+import axios from "axios";
+import { setupAuthInterceptor } from "../utils/axiosInterceptors"; // Yeni import
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1";
 
 const plansApi = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-    },
+  baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
 });
 
 // Interceptor'ları setupAuthInterceptor utility'si ile ekle
@@ -30,13 +31,19 @@ setupAuthInterceptor(plansApi);
  * @returns {Promise<object>} Plan listesi ve sayfalama bilgileri.
  */
 export const getAllPlans = async (params = {}) => {
-    try {
-        const response = await plansApi.get('/plans', { params });
-        // Laravel paginate() kullandığı için response.data doğrudan pagination objesi olabilir
-        return response.data; // data, meta, links objelerini içerecek
-    } catch (error) {
-        throw new Error('Planlar getirilirken hata:', error.response?.data || error.message);
-    }
+  try {
+    const response = await plansApi.get("/plans", { params });
+    // Laravel paginate() kullandığı için response.data doğrudan pagination objesi olabilir
+    return response.data; // data, meta, links objelerini içerecek
+  } catch (error) {
+    throw new Error(
+      `Planlar getirilirken hata: ${
+        error.response?.data?.message ||
+        JSON.stringify(error.response?.data) ||
+        error.message
+      }`
+    );
+  }
 };
 
 /**
@@ -45,13 +52,19 @@ export const getAllPlans = async (params = {}) => {
  * @returns {Promise<object>} Plan bilgileri
  */
 export const getPlanById = async (planId) => {
-    try {
-        const response = await plansApi.get(`/plans/${planId}`);
-        console.log(response.data);
-        return response.data.data;
-    } catch (error) {
-        throw new Error(`Plan ID ${planId} getirilirken hata:`, error.response?.data || error.message);
-    }
+  try {
+    const response = await plansApi.get(`/plans/${planId}`);
+    console.log(response.data);
+    return response.data.data;
+  } catch (error) {
+    throw new Error(
+      `Plan ID ${planId} getirilirken hata: ${
+        error.response?.data?.message ||
+        JSON.stringify(error.response?.data) ||
+        error.message
+      }`
+    );
+  }
 };
 
 /**
@@ -60,12 +73,18 @@ export const getPlanById = async (planId) => {
  * @returns {Promise<Array>} Plan özellikleri listesi
  */
 export const getPlanFeatures = async (planId) => {
-    try {
-        const response = await plansApi.get(`/plans/${planId}/features`);
-        return response.data;
-    } catch (error) {
-        throw new Error(`Plan ID ${planId} için özellikler getirilirken hata:`, error.response?.data || error.message);
-    }
+  try {
+    const response = await plansApi.get(`/plans/${planId}/features`);
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      `Plan ID ${planId} için özellikler getirilirken hata: ${
+        error.response?.data?.message ||
+        JSON.stringify(error.response?.data) ||
+        error.message
+      }`
+    );
+  }
 };
 
 /**
@@ -74,13 +93,18 @@ export const getPlanFeatures = async (planId) => {
  * @returns {Promise<Array>} Plan yorumları listesi
  */
 export const getPlanReviews = async (planId) => {
-    try {
-        const response = await plansApi.get(`/plans/${planId}/reviews`);
-        console.log(response.data);
-        return response.data;
-    } catch (error) {
-        throw new Error(`Plan ID ${planId} için yorumlar getirilirken hata:`, error.response?.data || error.message);
-    }
+  try {
+    const response = await plansApi.get(`/plans/${planId}/reviews`);
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      `Plan ID ${planId} için yorumlar getirilirken hata: ${
+        error.response?.data?.message ||
+        JSON.stringify(error.response?.data) ||
+        error.message
+      }`
+    );
+  }
 };
 
 /**
@@ -89,12 +113,18 @@ export const getPlanReviews = async (planId) => {
  * @returns {Promise<object>} Oluşturulan plan
  */
 export const createPlan = async (planData) => {
-    try {
-        const response = await plansApi.post('/plans', planData);
-        return response.data.data;
-    } catch (error) {
-        throw new Error('Plan oluşturulurken hata:', error.response?.data || error.message);
-    }
+  try {
+    const response = await plansApi.post("/plans", planData);
+    return response.data.data;
+  } catch (error) {
+    throw new Error(
+      `Plan oluşturulurken hata: ${
+        error.response?.data?.message ||
+        JSON.stringify(error.response?.data) ||
+        error.message
+      }`
+    );
+  }
 };
 
 /**
@@ -104,12 +134,18 @@ export const createPlan = async (planData) => {
  * @returns {Promise<object>} Güncellenen plan
  */
 export const updatePlan = async (planId, updatedData) => {
-    try {
-        const response = await plansApi.put(`/plans/${planId}`, updatedData);
-        return response.data.data;
-    } catch (error) {
-        throw new Error(`Plan ID ${planId} güncellenirken hata:`, error.response?.data || error.message);
-    }
+  try {
+    const response = await plansApi.put(`/plans/${planId}`, updatedData);
+    return response.data.data;
+  } catch (error) {
+    throw new Error(
+      `Plan ID ${planId} güncellenirken hata: ${
+        error.response?.data?.message ||
+        JSON.stringify(error.response?.data) ||
+        error.message
+      }`
+    );
+  }
 };
 
 /**
@@ -118,11 +154,17 @@ export const updatePlan = async (planId, updatedData) => {
  * @returns {Promise<void>}
  */
 export const deletePlan = async (planId) => {
-    try {
-        await plansApi.delete(`/plans/${planId}`);
-    } catch (error) {
-        throw new Error(`Plan ID ${planId} silinirken hata:`, error.response?.data || error.message);
-    }
+  try {
+    await plansApi.delete(`/plans/${planId}`);
+  } catch (error) {
+    throw new Error(
+      `Plan ID ${planId} silinirken hata: ${
+        error.response?.data?.message ||
+        JSON.stringify(error.response?.data) ||
+        error.message
+      }`
+    );
+  }
 };
 
 /**
@@ -132,11 +174,16 @@ export const deletePlan = async (planId) => {
  * @returns {Promise<object>} Senkronizasyon yanıtı
  */
 export const syncFeatures = async (planId, features) => {
-    try {
-        const response = await plansApi.put(`/plans/${planId}/features/sync`, { features });
-        return response.data;
-    } catch (error) {
-        console.error(`Plan (ID: ${planId}) özellikleri senkronize edilirken hata oluştu:`, error.response?.data || error.message);
-        throw error;
-    }
+  try {
+    const response = await plansApi.put(`/plans/${planId}/features/sync`, {
+      features,
+    });
+    return response.data;
+  } catch (error) {
+    console.error(
+      `Plan (ID: ${planId}) özellikleri senkronize edilirken hata oluştu:`,
+      error.response?.data || error.message
+    );
+    throw error;
+  }
 };

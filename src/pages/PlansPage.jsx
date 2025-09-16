@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { Link, useSearchParams } from "react-router-dom"; // useSearchParams eklendi
 import { getAllPlans } from "../api/plans"; // Plan API fonksiyonlarını içe aktar
 import { getAllCategories } from "../api/categories"; // Kategorileri çekmek için
@@ -7,6 +13,15 @@ import { useToastContext } from "../hooks/toast-utils"; // Toast bildirimleri i�
 import { useComparison } from "../hooks/useComparison"; // Karşılaştırma bağlamı için
 
 // Shadcn UI bileşenleri
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationEllipsis,
+} from "../components/ui/pagination";
 import {
   Card,
   CardContent,
@@ -31,6 +46,7 @@ import AnimatedListItem from "@/components/AnimatedListItem";
 import { Frown } from "lucide-react"; // Frown ikonu eklendi
 import { Helmet } from "react-helmet-async"; // Helmet'i içe aktar
 import { useTranslation } from "react-i18next"; // i18n için useTranslation
+import FilterChips from "@/components/FilterChips";
 const PlansPage = () => {
   const { toast } = useToastContext();
   const {
@@ -44,18 +60,19 @@ const PlansPage = () => {
 
   // URL arama parametrelerini yönetmek için useSearchParams
   const [searchParams, setSearchParams] = useSearchParams();
+  const searchDebounceRef = useRef(null);
+  const priceDebounceRef = useRef({ min: null, max: null });
+  // Sayfalama State'leri - URL'den okunuyor
+  const currentPage = parseInt(searchParams.get("page") || "1", 10);
+  const [itemsPerPage] = useState(9); // Her sayfada 9 plan göster
 
   // Filtreleme ve Sıralama State'leri - URL'den okunuyor
+  const sortBy = searchParams.get("sortBy") || "name_asc";
   const searchTerm = searchParams.get("search") || "";
   const selectedCategory = searchParams.get("category") || "all";
   const selectedProvider = searchParams.get("provider") || "all";
   const minPrice = searchParams.get("minPrice") || "";
   const maxPrice = searchParams.get("maxPrice") || "";
-  const sortBy = searchParams.get("sortBy") || "name_asc";
-
-  // Sayfalama State'leri - URL'den okunuyor
-  const currentPage = parseInt(searchParams.get("page") || "1", 10);
-  const [itemsPerPage] = useState(9); // Her sayfada 9 plan göster
 
   // Debounce'lu arama terimi için state (Input'tan anlık değer, URL'ye yansıyan debounce'lu değer)
   const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
@@ -66,47 +83,75 @@ const PlansPage = () => {
   const [categorySearchTerm, setCategorySearchTerm] = useState("");
   const [providerSearchTerm, setProviderSearchTerm] = useState("");
 
+  const cancelAllDebounces = useCallback(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+    if (priceDebounceRef.current?.min) {
+      clearTimeout(priceDebounceRef.current.min);
+      priceDebounceRef.current.min = null;
+    }
+    if (priceDebounceRef.current?.max) {
+      clearTimeout(priceDebounceRef.current.max);
+      priceDebounceRef.current.max = null;
+    }
+  }, []);
   // Arama terimini debounce etmek için useEffect
   useEffect(() => {
-    const handler = setTimeout(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
       setSearchParams(
         (prev) => {
+          const prevParams = new URLSearchParams(prev);
           const newParams = new URLSearchParams(prev);
           if (localSearchTerm) newParams.set("search", localSearchTerm);
           else newParams.delete("search");
-          newParams.set("page", "1"); // Arama değiştiğinde sayfayı sıfırla
+          // YALNIZCA gerçekten değiştiyse sayfayı 1’e al
+          const prevSearch = prevParams.get("search") || "";
+          if (prevSearch !== localSearchTerm) newParams.set("page", "1");
           return newParams;
         },
         { replace: true }
-      ); // URL'yi geçmişe eklemeden değiştir
+      );
     }, 500);
-
     return () => {
-      clearTimeout(handler);
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
   }, [localSearchTerm, setSearchParams]);
 
   // Fiyat aralıklarını debounce etmek için useEffect
   useEffect(() => {
-    const minPriceHandler = setTimeout(() => {
+    if (priceDebounceRef.current.min)
+      clearTimeout(priceDebounceRef.current.min);
+    priceDebounceRef.current.min = setTimeout(() => {
       setSearchParams(
         (prev) => {
+          const prevParams = new URLSearchParams(prev);
           const newParams = new URLSearchParams(prev);
           if (localMinPrice) newParams.set("minPrice", localMinPrice);
           else newParams.delete("minPrice");
-          newParams.set("page", "1");
+          if ((prevParams.get("minPrice") || "") !== (localMinPrice || "")) {
+            newParams.set("page", "1");
+          }
           return newParams;
         },
         { replace: true }
       );
     }, 500);
-    const maxPriceHandler = setTimeout(() => {
+
+    if (priceDebounceRef.current.max)
+      clearTimeout(priceDebounceRef.current.max);
+    priceDebounceRef.current.max = setTimeout(() => {
       setSearchParams(
         (prev) => {
+          const prevParams = new URLSearchParams(prev);
           const newParams = new URLSearchParams(prev);
           if (localMaxPrice) newParams.set("maxPrice", localMaxPrice);
           else newParams.delete("maxPrice");
-          newParams.set("page", "1");
+          if ((prevParams.get("maxPrice") || "") !== (localMaxPrice || "")) {
+            newParams.set("page", "1");
+          }
           return newParams;
         },
         { replace: true }
@@ -114,8 +159,10 @@ const PlansPage = () => {
     }, 500);
 
     return () => {
-      clearTimeout(minPriceHandler);
-      clearTimeout(maxPriceHandler);
+      if (priceDebounceRef.current.min)
+        clearTimeout(priceDebounceRef.current.min);
+      if (priceDebounceRef.current.max)
+        clearTimeout(priceDebounceRef.current.max);
     };
   }, [localMinPrice, localMaxPrice, setSearchParams]);
 
@@ -151,6 +198,56 @@ const PlansPage = () => {
   });
   const providers = providersData?.data;
 
+  // categories, providers listeleri zaten useQuery ile geliyor:
+  const categoryName =
+    selectedCategory === "all"
+      ? null
+      : categories?.find((c) => String(c.id) === String(selectedCategory))
+          ?.name || selectedCategory;
+
+  const providerName =
+    selectedProvider === "all"
+      ? null
+      : providers?.find((p) => String(p.id) === String(selectedProvider))
+          ?.name || selectedProvider;
+
+  const filterChips = [
+    searchTerm ? { key: "search", label: "Arama", value: searchTerm } : null,
+    categoryName
+      ? { key: "category", label: "Kategori", value: categoryName }
+      : null,
+    providerName
+      ? { key: "provider", label: "Sağlayıcı", value: providerName }
+      : null,
+    minPrice ? { key: "minPrice", label: "Min", value: minPrice } : null,
+    maxPrice ? { key: "maxPrice", label: "Max", value: maxPrice } : null,
+    // istersen sortBy'ı da göster:
+    // sortBy ? { key: "sortBy", label: "Sıralama", value: sortBy } : null,
+  ].filter(Boolean);
+
+  const handleRemoveFilter = (key) => {
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        if (key === "category") p.delete("category");
+        else if (key === "provider") p.delete("provider");
+        else if (key === "search") p.delete("search");
+        else if (key === "minPrice") p.delete("minPrice");
+        else if (key === "maxPrice") p.delete("maxPrice");
+        else if (key === "sortBy") p.set("sortBy", "name_asc"); // varsayılanın buysa
+        p.set("page", "1");
+        return p;
+      },
+      { replace: true }
+    );
+  };
+
+  const handleClearAllFilters = () => {
+    const keep = new URLSearchParams();
+    keep.set("page", "1");
+    setSearchParams(keep, { replace: true });
+  };
+
   // Planları çekmek için useQuery
   const {
     data: plansData,
@@ -160,12 +257,12 @@ const PlansPage = () => {
   } = useQuery({
     queryKey: [
       "plans",
-      searchTerm, // Debounce'lu terim doğrudan kullanılıyor
+      searchTerm,
       selectedCategory,
       selectedProvider,
-      minPrice, // Debounce'lu fiyat doğrudan kullanılıyor
-      maxPrice, // Debounce'lu fiyat doğrudan kullanılıyor
-      sortParams,
+      minPrice,
+      maxPrice,
+      sortBy,
       currentPage,
       itemsPerPage,
     ],
@@ -189,7 +286,18 @@ const PlansPage = () => {
   const plans = plansData?.data || [];
   const totalPages = plansData?.meta?.last_page || 1;
   const totalPlans = plansData?.meta?.total || 0;
-
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev);
+          p.set("page", String(totalPages));
+          return p;
+        },
+        { replace: true }
+      );
+    }
+  }, [totalPages, currentPage, setSearchParams]);
   useEffect(() => {
     if (isError) {
       toast({
@@ -273,6 +381,7 @@ const PlansPage = () => {
   };
 
   const handlePrevPage = () => {
+    cancelAllDebounces();
     setSearchParams(
       (prev) => {
         const newParams = new URLSearchParams(prev);
@@ -288,6 +397,7 @@ const PlansPage = () => {
   };
 
   const handleNextPage = () => {
+    cancelAllDebounces();
     setSearchParams(
       (prev) => {
         const newParams = new URLSearchParams(prev);
@@ -301,6 +411,26 @@ const PlansPage = () => {
       { replace: true }
     );
   };
+
+  const getPageRange = (current, total, siblings = 1) => {
+    const totalNumbers = siblings * 2 + 5; // first,last,current, 2*siblings
+    if (total <= totalNumbers)
+      return Array.from({ length: total }, (_, i) => i + 1);
+
+    const left = Math.max(2, current - siblings);
+    const right = Math.min(total - 1, current + siblings);
+    const showLeftDots = left > 2;
+    const showRightDots = right < total - 1;
+
+    const range = [];
+    range.push(1);
+    if (showLeftDots) range.push("dots-left");
+    for (let i = left; i <= right; i++) range.push(i);
+    if (showRightDots) range.push("dots-right");
+    range.push(total);
+    return range;
+  };
+  const pageItems = getPageRange(currentPage, totalPages, 1);
 
   const handleCompareCheckboxChange = useCallback(
     (plan, checked) => {
@@ -563,7 +693,11 @@ const PlansPage = () => {
           </SelectContent>
         </Select>
       </div>
-
+      <FilterChips
+        items={filterChips}
+        onRemove={handleRemoveFilter}
+        onClearAll={handleClearAllFilters}
+      />
       {/* Plan Kartları */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {plans.length > 0 ? (
@@ -644,27 +778,67 @@ const PlansPage = () => {
       </div>
 
       {/* Sayfalama Kontrolleri */}
-      {totalPlans > 0 && (
-        <div className="flex justify-center items-center space-x-4 mt-8">
-          <Button
-            onClick={handlePrevPage}
-            disabled={currentPage === 1 || isLoading}
-            variant="outline"
-          >
-            {t("previous")}
-          </Button>
-          <span className="text-lg font-semibold">
-            {t("page")} {currentPage} / {totalPages}
-          </span>
-          <Button
-            onClick={handleNextPage}
-            disabled={currentPage === totalPages || isLoading}
-            variant="outline"
-          >
-            {t("next")}
-          </Button>
-        </div>
-      )}
+      <Pagination className="mt-4">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              onClick={() =>
+                setSearchParams(
+                  (prev) => {
+                    const p = new URLSearchParams(prev);
+                    const next = Math.max(1, currentPage - 1);
+                    p.set("page", String(next));
+                    return p;
+                  },
+                  { replace: true }
+                )
+              }
+              aria-disabled={currentPage === 1 || isLoading}
+            />
+          </PaginationItem>
+
+          {pageItems.map((pItem, idx) => (
+            <PaginationItem key={`${pItem}-${idx}`}>
+              {typeof pItem === "number" ? (
+                <PaginationLink
+                  isActive={pItem === currentPage}
+                  onClick={() =>
+                    setSearchParams(
+                      (prev) => {
+                        const p = new URLSearchParams(prev);
+                        p.set("page", String(pItem));
+                        return p;
+                      },
+                      { replace: true }
+                    )
+                  }
+                >
+                  {pItem}
+                </PaginationLink>
+              ) : (
+                <PaginationEllipsis />
+              )}
+            </PaginationItem>
+          ))}
+
+          <PaginationItem>
+            <PaginationNext
+              onClick={() =>
+                setSearchParams(
+                  (prev) => {
+                    const p = new URLSearchParams(prev);
+                    const next = Math.min(totalPages, currentPage + 1);
+                    p.set("page", String(next));
+                    return p;
+                  },
+                  { replace: true }
+                )
+              }
+              aria-disabled={currentPage === totalPages || isLoading}
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
     </div>
   );
 };
